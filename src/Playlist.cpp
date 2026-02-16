@@ -6,6 +6,40 @@
 mspl::PlaylistShuffled::Iterator::Iterator(int current, Playlist* playlist, std::vector<int>* order) :
 m_current(current), m_playlist(playlist), m_order(order) {}
 
+std::filesystem::directory_entry& mspl::PlaylistShuffled::Iterator::operator*() noexcept {
+	return *(m_playlist->begin() + (*m_order)[m_current]);
+}
+
+std::filesystem::directory_entry* mspl::PlaylistShuffled::Iterator::operator->() noexcept {
+	return (m_playlist->begin() + (*m_order)[m_current]).operator->();
+}
+
+const std::filesystem::directory_entry* mspl::PlaylistShuffled::Iterator::operator->() const noexcept {
+	return (m_playlist->begin() + (*m_order)[m_current]).operator->();
+}
+
+mspl::PlaylistShuffled::Iterator& mspl::PlaylistShuffled::Iterator::operator++() noexcept {
+	++m_current;
+	return *this;
+}
+
+mspl::PlaylistShuffled::Iterator& mspl::PlaylistShuffled::Iterator::operator--() noexcept {
+	++m_current;
+	return *this;
+}
+
+bool mspl::PlaylistShuffled::Iterator::operator==(const Iterator& other) const noexcept {
+	return m_current == other.m_current && m_playlist == other.m_playlist && m_order == other.m_order;
+}
+
+bool mspl::PlaylistShuffled::Iterator::operator!=(const Iterator& other) const noexcept {
+	return !(m_current == other.m_current && m_playlist == other.m_playlist && m_order == other.m_order);
+}
+
+const std::filesystem::directory_entry& mspl::PlaylistShuffled::Iterator::operator*() const noexcept {
+	return *(m_playlist->begin() + (*m_order)[m_current]);
+}
+
 mspl::PlaylistShuffled::Iterator mspl::PlaylistShuffled::begin() noexcept {
 	return Iterator(0, m_playlist, &m_order);
 }

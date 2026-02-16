@@ -20,32 +20,17 @@ namespace mspl {
 			);
 
 		public:
-			std::filesystem::directory_entry& operator*() noexcept {
-				return *(m_playlist->begin() + (*m_order)[m_current]);
-			}
+			std::filesystem::directory_entry& operator*() noexcept;
+			const std::filesystem::directory_entry& operator*() const noexcept {}
 
-			const std::filesystem::directory_entry& operator*() const noexcept {
-				return *(m_playlist->begin() + (*m_order)[m_current]);
-			}
+			std::filesystem::directory_entry* operator->() noexcept;
+			const std::filesystem::directory_entry* operator->() const noexcept;
 
-			std::filesystem::directory_entry* operator->() noexcept {
-				return (m_playlist->begin() + (*m_order)[m_current]).operator->();
-			}
+			Iterator& operator++() noexcept;
+			Iterator& operator--() noexcept;
 
-			std::filesystem::directory_entry* operator->() const noexcept {
-				return (m_playlist->begin() + (*m_order)[m_current]).operator->();
-			}
-
-			Iterator& operator++() noexcept { ++m_current; return *this; }
-			Iterator& operator--() noexcept { --m_current; return *this; }
-
-			bool operator==(const Iterator& other) const noexcept {
-				return m_current == other.m_current && m_playlist == other.m_playlist && m_order == other.m_order;
-			}
-
-			bool operator!=(const Iterator& other) const noexcept {
-				return !(this->operator==(other));
-			}
+			bool operator==(const Iterator& other) const noexcept;
+			bool operator!=(const Iterator& other) const noexcept;
 
 		private:
 			int               m_current  = 0;
@@ -63,7 +48,7 @@ namespace mspl {
 		Iterator end() noexcept;
 
 	private:
-		Playlist*  m_playlist;
+		Playlist*        m_playlist;
 		std::vector<int> m_order;
 	};
 
