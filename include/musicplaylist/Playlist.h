@@ -1,6 +1,8 @@
 #ifndef MUSIC_PLAYLIST_CORE_HEADER
 #define MUSIC_PLAYLIST_CORE_HEADER
 
+#include <musicplaylist/Generator.h>
+
 #include <vector>
 #include <string>
 #include <random>
@@ -8,8 +10,6 @@
 #include <filesystem>
 
 namespace mspl {
-	class Playlist;
-
 	class PlaylistElement {
 	public:
 		PlaylistElement(const std::filesystem::directory_entry& entry);
@@ -52,17 +52,16 @@ namespace mspl {
 			bool HasNext() const noexcept;
 
 		private:
-			size_t			     m_current = 0;
-			Playlist* m_playlist = nullptr;
-			std::vector<size_t>* m_order = nullptr;
+			size_t			     m_current  = 0;
+			Playlist*			 m_playlist = nullptr;
+			std::vector<size_t>* m_order    = nullptr;
 		};
 
 	public:
 		PlaylistShuffled(
 			Playlist* playlist,
 			std::vector<size_t>&& order
-		) : m_playlist(playlist), m_order(std::move(order)) {
-		}
+		) : m_playlist(playlist), m_order(std::move(order)) {}
 
 	public:
 		Iterator begin() noexcept;
@@ -71,98 +70,6 @@ namespace mspl {
 	private:
 		Playlist* m_playlist;
 		std::vector<size_t> m_order;
-	};
-
-	// instead of using pre-generated order, generates next file on GenerateNext()
-	class PlaylistOrderGenerator {
-	public:
-		enum class GenerationStrategy {
-			ORDERED,
-			ORDERED_CYCLE,
-			RANDOM,
-			RANDOM_CYCLE,
-			RANDOM_CYCLE_REGENERATE,
-		};
-
-		class IGenerationStrategy {
-		public:
-			virtual ~IGenerationStrategy() = default;
-
-			virtual size_t GenerateNext() noexcept = 0;
-			virtual bool HasNext() const noexcept = 0;
-		};
-
-		class GenerationStrategy_Ordered : public IGenerationStrategy {
-		public:
-			GenerationStrategy_Ordered(size_t listSize);
-
-			virtual size_t GenerateNext() noexcept override;
-			virtual bool HasNext() const noexcept override;
-
-		private:
-			size_t m_current = 0;
-			size_t m_listSize;
-		};
-
-		class GenerationStrategy_OrderedCycle : public IGenerationStrategy {
-		public:
-			GenerationStrategy_OrderedCycle(size_t listSize);
-
-			virtual size_t GenerateNext() noexcept override;
-			virtual bool HasNext() const noexcept override;
-
-		private:
-			size_t m_current = 0;
-			size_t m_listSize;
-		};
-
-		class GenerationStrategy_Random : public IGenerationStrategy {
-		public:
-			GenerationStrategy_Random(size_t listSize);
-
-			virtual size_t GenerateNext() noexcept override;
-			virtual bool HasNext() const noexcept override;
-
-		private:
-			std::vector<size_t> m_order;
-		};
-
-		class GenerationStrategy_RandomCycle : public IGenerationStrategy {
-		public:
-			GenerationStrategy_RandomCycle(size_t listSize);
-
-			virtual size_t GenerateNext() noexcept override;
-			virtual bool HasNext() const noexcept override;
-
-		private:
-			size_t              m_current = 0;
-			std::vector<size_t> m_generatedOrder;
-			std::vector<size_t> m_order;
-		};
-
-		class GenerationStrategy_RandomCycleRegenerate : public IGenerationStrategy {
-		public:
-			GenerationStrategy_RandomCycleRegenerate(size_t listSize);
-
-			virtual size_t GenerateNext() noexcept override;
-			virtual bool HasNext() const noexcept override;
-
-		private:
-			size_t              m_current = 0;
-			size_t              m_listSize;
-			std::vector<size_t> m_generatedOrder;
-			std::vector<size_t> m_order;
-		};
-
-	public:
-		PlaylistOrderGenerator(Playlist* playlist, GenerationStrategy strategy);
-
-		PlaylistElement& GenerateNext() noexcept;
-		bool HasNext() const noexcept;
-
-	private:
-		std::unique_ptr<IGenerationStrategy> m_generationStrategy;
-		Playlist* m_playlist;
 	};
 
 	// set of files
