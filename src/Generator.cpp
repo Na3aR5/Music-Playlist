@@ -64,8 +64,8 @@ bool mspl::PlaylistOrderGenerator::GenerationStrategy_Random::HasNext() const no
 
 // ---------------------------------------------- GenerationStrategy_RandomCycle -------------------------------------------
 
-mspl::PlaylistOrderGenerator::GenerationStrategy_RandomCycle::GenerationStrategy_RandomCycle(size_t listSize, std::mt19937* generator) :
-m_generator(generator) {
+mspl::PlaylistOrderGenerator::GenerationStrategy_RandomCycle::GenerationStrategy_RandomCycle(
+size_t listSize, std::mt19937* generator) : m_generator(generator) {
 	m_order.reserve(listSize);
 	for (size_t i = 0; i < listSize; ++i) {
 		m_order.emplace_back(i);
