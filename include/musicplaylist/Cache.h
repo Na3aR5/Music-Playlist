@@ -3,44 +3,19 @@
 
 #include <map>
 #include <list>
+#include <functional>
 
-namespace {
-	template <typename CacheT, typename Function>
-	class MemoizedFunction {
-	public:
-		MemoizedFunction(CacheT* cache, Function& function) :
-			m_cache(cache), m_function(function) {}
-
-		MemoizedFunction(CacheT* cache, Function&& function) :
-			m_cache(cache), m_function(std::move(function)) {}
-
-	public:
-		template <typename ... Types>
-		auto operator()(const CacheT::KeyType& key, Types&& ... args) -> decltype(Function()(std::forward<Types>(args)...)) {
-			auto result = m_function(std::forward<Types>(args)...);
-			m_cache->Insert(key, result);
-		}
-
-	public:
-		CacheT*  m_cache = nullptr;
-		Function m_function;
-	};
-
+namespace mspl {
 	template <typename KeyT, typename ValueT>
 	class LRUCache {
 	public:
-		using KeyType   = KeyT;
+		using KeyType = KeyT;
 		using ValueType = ValueT;
 
 	public:
 		LRUCache(uint32_t capacity = UINT32_MAX) : m_capacity(capacity) {}
 
 	public:
-		template <typename Function>
-		MemoizedFunction<LRUCache, Function> GetMemoized(Function& function) {
-			return MemoizedFunction<LRUCache, Function>(this, function);
-		}
-
 		void Insert(const KeyType& key, const ValueType& value) {
 			auto it = m_keys.find(key);
 			if (it != m_keys.cend()) {
@@ -50,9 +25,9 @@ namespace {
 				return;
 			}
 			if (m_values.size() == m_capacity) {
-				const KeyType& lruKey = m_values.front().first;
+				KeyType& frontKey = m_values.front().first;
+				m_keys.erase(frontKey);
 				m_values.pop_front();
-				m_keys.erase(lruKey);
 			}
 			m_values.emplace_back(key, value);
 			m_keys.emplace(key, --m_values.end());
@@ -61,33 +36,48 @@ namespace {
 		ValueType* Get(const KeyType& key) {
 			auto it = m_keys.find(key);
 			if (it != m_keys.cend()) {
-				ValueType& value = it->second->second;
-				m_values.erase(it->second);
+				const ValueType& value = it->second->second;
 				m_values.emplace_back(key, value);
-				it->second = --m_values.end();
-
-				return &value;
-			}
-			return nullptr;
-		}
-
-		const ValueType* Get(const KeyType& key) const {
-			auto it = m_keys.find(key);
-			if (it != m_keys.cend()) {
-				ValueType& value = it->second->second;
 				m_values.erase(it->second);
-				m_values.emplace_back(key, value);
 				it->second = --m_values.end();
-
-				return &value;
+				return &m_values.back().second;
 			}
 			return nullptr;
 		}
 
 	private:
-		uint32_t m_capacity = 0;
+		uint32_t m_capacity = UINT32_MAX;
 		std::list<std::pair<KeyType, ValueType>> m_values;
 		std::map<KeyType, typename std::list<std::pair<KeyType, ValueType>>::iterator> m_keys;
+	};
+
+	template <typename Function, typename ... Types>
+	class MemoizedFunction {
+	public:
+		using ReturnType = std::invoke_result_t<Function, Types...>;
+
+	public:
+		MemoizedFunction() = default;
+
+		ReturnType operator()(const Types& ... args) {
+			std::tuple<Types...> key = std::tuple<Types...>(args...);
+			ReturnType* valuePtr = m_cache.Get(key);
+			if (valuePtr) {
+				return *valuePtr;
+			}
+			ReturnType value = m_function(args...);
+			m_cache.Insert(key, value);
+			return value;
+		}
+
+		template <typename FFunction>
+		void SetFunction(FFunction function) {
+			m_function = function;
+		}
+
+	private:
+		std::function<Function> m_function;
+		LRUCache<std::tuple<Types...>, ReturnType> m_cache;
 	};
 }
 

@@ -150,15 +150,15 @@ m_playlist(playlist), m_randomGenerator(generator) {
 		break;
 
 	case GenerationStrategy::RANDOM:
-		m_generationStrategy = std::make_unique<GenerationStrategy_Random>(m_playlist->GetSize());
+		m_generationStrategy = std::make_unique<GenerationStrategy_Random>(m_playlist->GetSize(), generator);
 		break;
 
 	case GenerationStrategy::RANDOM_CYCLE:
-		m_generationStrategy = std::make_unique<GenerationStrategy_RandomCycle>(m_playlist->GetSize());
+		m_generationStrategy = std::make_unique<GenerationStrategy_RandomCycle>(m_playlist->GetSize(), generator);
 		break;
 
 	case GenerationStrategy::RANDOM_CYCLE_REGENERATE:
-		m_generationStrategy = std::make_unique<GenerationStrategy_RandomCycleRegenerate>(m_playlist->GetSize());
+		m_generationStrategy = std::make_unique<GenerationStrategy_RandomCycleRegenerate>(m_playlist->GetSize(), generator);
 		break;
 	}
 }
