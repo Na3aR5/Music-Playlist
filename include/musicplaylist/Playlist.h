@@ -12,15 +12,16 @@
 namespace mspl {
 	class PlaylistElement {
 	public:
-		PlaylistElement(const std::filesystem::directory_entry& entry);
+		PlaylistElement() = default;
+		PlaylistElement(const std::filesystem::path& audioPath, double durationSeconds);
 
 	public:
 		const std::filesystem::path& GetPath() const noexcept;
 		double GetDurationSeconds() const noexcept;
 
 	private:
-		double                           m_durationSeconds;
-		std::filesystem::directory_entry m_directoryEntry;
+		double                m_durationSeconds;
+		std::filesystem::path m_audioPath;
 	};
 
 	// pre-shuffled order
@@ -52,16 +53,17 @@ namespace mspl {
 			bool HasNext() const noexcept;
 
 		private:
-			size_t			     m_current  = 0;
-			Playlist*			 m_playlist = nullptr;
-			std::vector<size_t>* m_order    = nullptr;
+			size_t			     m_current = 0;
+			Playlist* m_playlist = nullptr;
+			std::vector<size_t>* m_order = nullptr;
 		};
 
 	public:
 		PlaylistShuffled(
 			Playlist* playlist,
 			std::vector<size_t>&& order
-		) : m_playlist(playlist), m_order(std::move(order)) {}
+		) : m_playlist(playlist), m_order(std::move(order)) {
+		}
 
 	public:
 		Iterator begin() noexcept;
@@ -72,32 +74,16 @@ namespace mspl {
 		std::vector<size_t> m_order;
 	};
 
-	// set of files
 	class Playlist {
 	public:
-		using PlayStrategy = PlaylistOrderGenerator::GenerationStrategy;
-
-	public:
-		Playlist(
-			const std::filesystem::path& directory,
-			const std::vector<std::string>& fileExtensions
-		);
-
-	public:
 		size_t GetSize() const noexcept;
-
 		PlaylistShuffled GetShuffled();
 		PlaylistOrderGenerator GetOrderGenerator(PlaylistOrderGenerator::GenerationStrategy strategy);
 
-	public:
-		void PlayFor(double seconds, PlayStrategy strategy);
+		void Add(const PlaylistElement& element);
 
-	public:
 		std::vector<PlaylistElement>::iterator begin() noexcept;
 		std::vector<PlaylistElement>::iterator end() noexcept;
-
-	private:
-		void _PlayElement(const PlaylistElement& elem) noexcept;
 
 	private:
 		std::vector<PlaylistElement> m_elements;

@@ -1,6 +1,6 @@
 #include <musicplaylist/Playlist.h>
-#include <thread>
 
+#include <thread>
 #include <set>
 
 namespace {
@@ -9,12 +9,12 @@ namespace {
 
 // ---------------------------------------------------- PlaylistElement ----------------------------------------------------
 
-mspl::PlaylistElement::PlaylistElement(const std::filesystem::directory_entry& entry) :
-	m_directoryEntry(entry), m_durationSeconds(1.0) {
+mspl::PlaylistElement::PlaylistElement(const std::filesystem::path& audioPath, double durationSeconds) :
+	m_audioPath(audioPath), m_durationSeconds(durationSeconds) {
 }
 
 const std::filesystem::path& mspl::PlaylistElement::GetPath() const noexcept {
-	return m_directoryEntry.path();
+	return m_audioPath;
 }
 
 double mspl::PlaylistElement::GetDurationSeconds() const noexcept {
@@ -82,16 +82,6 @@ mspl::PlaylistShuffled::Iterator mspl::PlaylistShuffled::end() noexcept {
 
 // --------------------------------------------------------- Playlist -------------------------------------------------------
 
-mspl::Playlist::Playlist(const std::filesystem::path& directory, const std::vector<std::string>& fileExtensions) {
-	std::set<std::string> extensionSet(fileExtensions.begin(), fileExtensions.end());
-
-	for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(directory)) {
-		if (entry.is_regular_file() && extensionSet.find(entry.path().extension().string()) != extensionSet.cend()) {
-			m_elements.emplace_back(entry);
-		}
-	}
-}
-
 size_t mspl::Playlist::GetSize() const noexcept {
 	return m_elements.size();
 }
@@ -123,23 +113,8 @@ mspl::PlaylistOrderGenerator mspl::Playlist::GetOrderGenerator(PlaylistOrderGene
 	return PlaylistOrderGenerator(this, strategy, &g_RandomGenerator);
 }
 
-void mspl::Playlist::PlayFor(double seconds, PlayStrategy strategy) {
-	PlaylistOrderGenerator generator(this, strategy, &g_RandomGenerator);
-
-	auto start = std::chrono::steady_clock::now();
-	while (generator.HasNext()) {
-		auto end = std::chrono::steady_clock::now();
-		double duration = std::chrono::duration<double>(end - start).count();
-
-		const PlaylistElement& elem = generator.GenerateNext();
-
-		if (duration + elem.GetDurationSeconds() >= seconds) {
-			break;
-		}
-		_PlayElement(elem);
-
-		std::this_thread::sleep_for(std::chrono::duration<double>(elem.GetDurationSeconds()));
-	}
+void mspl::Playlist::Add(const PlaylistElement& element) {
+	m_elements.emplace_back(element);
 }
 
 std::vector<mspl::PlaylistElement>::iterator mspl::Playlist::begin() noexcept {
@@ -148,9 +123,4 @@ std::vector<mspl::PlaylistElement>::iterator mspl::Playlist::begin() noexcept {
 
 std::vector<mspl::PlaylistElement>::iterator mspl::Playlist::end() noexcept {
 	return m_elements.end();
-}
-
-#include <iostream>
-void mspl::Playlist::_PlayElement(const PlaylistElement& elem) noexcept {
-	std::cout << elem.GetPath() << '\n';
 }
