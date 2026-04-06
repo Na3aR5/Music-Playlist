@@ -15,6 +15,7 @@ add_library(MusicPlaylistCore
 	include/musicplaylist/Config.h
 	include/musicplaylist/Backend.h
 	include/musicplaylist/BackendConsole.h
+	include/musicplaylist/BidirectionalPriorityQueue.h
 
 	src/App.cpp
 	src/Playlist.cpp
