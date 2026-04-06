@@ -1,0 +1,3 @@
+[submodule "external/lib/miniaudio"]
+	path = external/lib/miniaudio
+	url = https://github.com/mackron/miniaudio.git
