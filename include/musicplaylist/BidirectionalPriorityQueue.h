@@ -60,8 +60,8 @@ namespace mspl {
 		}
 
 		T DequeueOldest() {
-			auto newestIt = m_orderList.begin();
-			T value = std::move(newestIt->value);
+			auto oldestIt = m_orderList.begin();
+			T value = std::move(oldestIt->value);
 
 			m_priorityMap.erase(m_orderList.front().mapIt);
 			m_orderList.pop_front();

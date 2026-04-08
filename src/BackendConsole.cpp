@@ -15,6 +15,7 @@ namespace {
 		GET_GLOBAL,
 		PLAY,
 		STOP,
+		CREATE_PLAYLIST,
 
 		ENUM_SIZE
 	};
@@ -30,6 +31,7 @@ namespace {
 		{ "get_global", Command::GET_GLOBAL },
 		{ "play", Command::PLAY },
 		{ "stop", Command::STOP },
+		{ "create_playlist", Command::CREATE_PLAYLIST }
 	};
 
 	void (*EXECUTE_COMMANDS[(int)Command::ENUM_SIZE])(const CommandInfo&) = {
@@ -74,6 +76,21 @@ namespace {
 		},
 		[](const CommandInfo& info) {
 			mspl::Application::Get()->Player().StopDevice();
+		},
+		[](const CommandInfo& info) {
+			mspl::Playlist playlist;
+
+			size_t tokenSize = info.tokens.size();
+			for (size_t i = 2; i < tokenSize; ++i) {
+				const mspl::DatabaseElement* it = mspl::Application::Get()->Database().Get(info.tokens[i]);
+				if (it == nullptr) {
+					std::cout << " - Not found '" << info.tokens[i] << "' in global database\n";
+					continue;
+				}
+				mspl::PlaylistElement element(it->audioPath, it->durationSeconds);
+				playlist.Add(element);
+				std::cout << " - Added '" << info.tokens[i] << "'\n";
+			}
 		},
 	};
 

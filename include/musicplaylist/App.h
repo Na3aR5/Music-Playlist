@@ -37,9 +37,9 @@ namespace mspl {
 		void _Render();
 
 	private:
-		uint64_t m_states = 0;
-		Config   m_config = {};
-		IBackend* m_backend = nullptr;
+		uint64_t	   m_states = 0;
+		Config         m_config = {};
+		IBackend*	   m_backend = nullptr;
 		mspl::Player   m_player;
 		mspl::Database m_database;
 

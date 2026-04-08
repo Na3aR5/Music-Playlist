@@ -1,7 +1,7 @@
 #include <musicplaylist/Musicdb.h>
 #include <stdexcept>
 
-mspl::Database::Database(const char* metadataPath) {
+mspl::Database::Database(const char* metadataPath, const char* playlistPath) {
 	m_metadataFile.open(metadataPath, std::ios::binary | std::ios::in | std::ios::out);
 	if (!m_metadataFile.is_open()) {
 		std::ofstream temp(metadataPath, std::ios::binary);

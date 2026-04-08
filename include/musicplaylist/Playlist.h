@@ -2,9 +2,9 @@
 #define MUSIC_PLAYLIST_CORE_HEADER
 
 #include <musicplaylist/Generator.h>
+#include <musicplaylist/BidirectionalPriorityQueue.h>
 
 #include <vector>
-#include <string>
 #include <random>
 #include <memory>
 #include <filesystem>
@@ -81,11 +81,13 @@ namespace mspl {
 		PlaylistOrderGenerator GetOrderGenerator(PlaylistOrderGenerator::GenerationStrategy strategy);
 
 		void Add(const PlaylistElement& element);
+		void Rate(std::vector<PlaylistElement>::iterator elem, double rate);
 
 		std::vector<PlaylistElement>::iterator begin() noexcept;
 		std::vector<PlaylistElement>::iterator end() noexcept;
 
 	private:
+		mspl::BidirPriorityQueue<size_t, double> m_rating;
 		std::vector<PlaylistElement> m_elements;
 	};
 }

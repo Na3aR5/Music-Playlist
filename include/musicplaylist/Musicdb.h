@@ -25,7 +25,7 @@ namespace mspl {
 
 	class Database {
 	public:
-		Database(const char* metadataPath);
+		Database(const char* metadataPath, const char* playlistPath);
 		~Database();
 
 		void Add(const DatabaseElement&);

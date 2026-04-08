@@ -117,6 +117,11 @@ void mspl::Playlist::Add(const PlaylistElement& element) {
 	m_elements.emplace_back(element);
 }
 
+void mspl::Playlist::Rate(std::vector<mspl::PlaylistElement>::iterator elem, double rate) {
+	size_t index = elem - m_elements.begin();
+	m_rating.Enqueue(index, rate);
+}
+
 std::vector<mspl::PlaylistElement>::iterator mspl::Playlist::begin() noexcept {
 	return m_elements.begin();
 }
