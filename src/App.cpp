@@ -1,79 +1,74 @@
-#include <musicplaylist/App.h>
-#include <musicplaylist/BackendConsole.h>
+#include <jade/App.h>
+#include <jade/backend/BackendConsole.h>
+
 #include <thread>
+#include <stdexcept>
 
 namespace {
-	mspl::Application* g_Application = nullptr;
+	jade::Application* g_Application = nullptr;
 }
 
-mspl::Application::Application() : m_config(), m_database(m_config.DATABASE_FILEPATH) {
-	if (g_Application) {
-		return;
+jade::Application::Application() : m_eventSystem(), m_musicDatabase() {
+	if (g_Application != nullptr) {
+		throw std::runtime_error("Application is already created");
 	}
-	switch (m_config.BACKEND_TYPE) {
-	case BackendType::CONSOLE:
-		m_backend = (BackendConsole*)::operator new(sizeof(BackendConsole));
-		new (m_backend) BackendConsole();
-		break;
+	switch (Config::BackendType) {
+		case Config::Backend::CONSOLE: {
+			m_backend = (BackendConsole*)::operator new(sizeof(BackendConsole));
+			new (m_backend) BackendConsole();
+			break;
+		}
+	}
 
-	default:
-		break;
-	}
+	m_eventSystem.Subscribe<OnApplicationClose>(0, [this](OnApplicationClose e) {
+		if (e.closeState == e.ShouldClose) {
+			m_states |= State::STOPPED_BIT;
+			m_states &= ~State::STARTED_BIT;
+		}
+	});
+
 	g_Application = this;
 }
 
-mspl::Application::~Application() {
-	if (m_backend) {
+jade::Application::~Application() {
+	if (m_backend != nullptr) {
 		m_backend->~IBackend();
-		::operator delete(m_backend);
+		::operator delete (m_backend);
 		m_backend = nullptr;
 	}
+	g_Application = nullptr;
 }
 
-mspl::Application* mspl::Application::Get() noexcept {
-	return g_Application;
+jade::Application& jade::Application::Get() {
+	return *g_Application;
 }
 
-mspl::Database& mspl::Application::Database() noexcept {
-	return m_database;
+const jade::Application& jade::Application::GetConst() {
+	return *g_Application;
 }
 
-const mspl::Database& mspl::Application::Database() const noexcept {
-	return m_database;
-}
-
-mspl::Player& mspl::Application::Player() noexcept {
-	return m_player;
-}
-
-const mspl::Player& mspl::Application::Player() const noexcept {
-	return m_player;
-}
-
-void mspl::Application::MainLoop() {
+void jade::Application::MainLoop() {
+	if (m_states & State::STARTED_BIT) {
+		return;
+	}
 	m_states |= State::STARTED_BIT;
 
 	while (m_states & State::STARTED_BIT) {
-		_Update();
-		_Render();
-		_HandleEvents();
+		m_backend->Update();
+		m_backend->Render();
+		m_eventSystem.Dispatch();
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(1));
 	}
 }
 
-void mspl::Application::StopLoop() {
+void jade::Application::CloseRequest() {
+	EventEmitter<OnApplicationClose>().Emit(OnApplicationClose{
+		.closeState = OnApplicationClose::ShouldClose	
+	});
+}
+
+void jade::Application::CloseUnsavedRequest() {
+	m_states |= State::STOPPED_BIT;
 	m_states &= ~State::STARTED_BIT;
-}
-
-void mspl::Application::_HandleEvents() {
-	m_backend->HandleEvents();
-}
-
-void mspl::Application::_Update() {
-	m_backend->Update();
-}
-
-void mspl::Application::_Render() {
-	m_backend->Render();
 }

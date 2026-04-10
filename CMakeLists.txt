@@ -6,24 +6,21 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
 add_library(MusicPlaylistCore
-	include/musicplaylist/App.h
-	include/musicplaylist/Playlist.h
-	include/musicplaylist/Generator.h
-	include/musicplaylist/Cache.h
-	include/musicplaylist/Musicdb.h
-	include/musicplaylist/Player.h
-	include/musicplaylist/Config.h
-	include/musicplaylist/Backend.h
-	include/musicplaylist/BackendConsole.h
-	include/musicplaylist/BidirectionalPriorityQueue.h
+	include/jade/App.h
+	include/jade/Config.h
+	include/jade/Event.h
+	include/jade/EventSystem.h
+	include/jade/MusicDatabase.h
+	include/jade/Audio.h
+
+	include/jade/backend/Backend.h
+	include/jade/backend/BackendConsole.h
 
 	src/App.cpp
-	src/Playlist.cpp
-	src/Generator.cpp
-	src/Musicdb.cpp
-	src/Player.cpp
-	src/Config.cpp
+	src/EventSystem.cpp
 	src/BackendConsole.cpp
+	src/MusicDatabase.cpp
+	src/Audio.cpp
 )
 
 target_include_directories(MusicPlaylistCore PUBLIC

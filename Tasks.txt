@@ -1,0 +1,11 @@
+1) Class "Application" with handle-update-render system based on backend type
+	- Interface "IBackend" based on handle-update-render system
+        - Event system with subscribe functionality, that stores event type and data
+		- Requirement:
+			- order
+			- consume priority
+		- Implementation:
+			EventSystem::Register<EventData>(event, data)
+
+OnPlayerHitEventInfo
+				

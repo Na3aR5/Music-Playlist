@@ -1,170 +1,233 @@
-#include <musicplaylist/BackendConsole.h>
-#include <musicplaylist/App.h>
+#include <jade/backend/BackendConsole.h>
+#include <jade/App.h>
 
-#include <miniaudio.h>
-
-#include <iostream>
+#include <map>
 #include <string>
 #include <vector>
-#include <map>
+#include <iostream>
+
+enum class Command {
+	NoCmd,
+
+	Close,
+	CloseUnsaved,
+
+	GlobalAdd,
+	GlobalSave,
+	GlobalShow,
+
+	PlaylistCreate
+};
 
 namespace {
-	enum class Command {
-		EXIT,
-		ADD_GLOBAL,
-		GET_GLOBAL,
-		PLAY,
-		STOP,
-		CREATE_PLAYLIST,
+	void ShowInputRow();
+	void ShowError(const std::string& error);
+	Command GetCommandFromName(const std::string&);
+	std::vector<std::vector<std::string>> Tokenize(const std::string&);
 
-		ENUM_SIZE
+	void GlobalShowExecute(std::vector<std::vector<std::string>>& tokens);
+	void GlobalAddExecute(std::vector<std::vector<std::string>>& tokens);
+	void PlaylistCreateExecute(std::vector<std::vector<std::string>>& tokens);
+}
+
+namespace {
+	const std::map<std::string, Command> g_CommandMap = {
+		{ "close",		     Command::Close },
+		{ "close_unsaved",   Command::CloseUnsaved },
+		{ "global_add",      Command::GlobalAdd },
+		{ "global_save",     Command::GlobalSave },
+		{ "global_show",     Command::GlobalShow },
+		{ "playlist_create", Command::PlaylistCreate },
 	};
 
-	struct CommandInfo {
-		Command cmd;
-		std::vector<std::string> tokens;
-	};
-
-	const std::map<std::string, Command> COMMAND_MAP = {
-		{ "exit", Command::EXIT },
-		{ "add_global", Command::ADD_GLOBAL },
-		{ "get_global", Command::GET_GLOBAL },
-		{ "play", Command::PLAY },
-		{ "stop", Command::STOP },
-		{ "create_playlist", Command::CREATE_PLAYLIST }
-	};
-
-	void (*EXECUTE_COMMANDS[(int)Command::ENUM_SIZE])(const CommandInfo&) = {
-		[](const CommandInfo& info) {
-			mspl::Application::Get()->StopLoop();
+	using ExecuteCommandFunction = void(*)(std::vector<std::vector<std::string>>&);
+	const ExecuteCommandFunction g_ExecuteCommandFunctions[] = {
+		[](std::vector<std::vector<std::string>>& tokens) { // NoCmd
+			std::cout << " - Unknown command '" << tokens.front().front() << "'!\n";
 		},
-		[](const CommandInfo& info) {
-			mspl::DatabaseElement element;
-			uint32_t artistCount = (uint32_t)info.tokens.size() - 3;
-			element.artists.assign(info.tokens.begin() + 1, info.tokens.begin() + (1 + artistCount));
-			element.name = info.tokens[1 + artistCount];
-			element.audioPath = info.tokens[2 + artistCount];
-
-			ma_decoder decoder;
-			ma_decoder_init_file(info.tokens[2 + artistCount].c_str(), nullptr, &decoder);
-			ma_uint64 lengthInFrames = 0;
-			ma_decoder_get_length_in_pcm_frames(&decoder, &lengthInFrames);
-			element.durationSeconds = (double)lengthInFrames / decoder.outputSampleRate;
-
-			mspl::Application::Get()->Database().Add(element);
+		[](std::vector<std::vector<std::string>>& tokens) { // Close
+			jade::Application::Get().CloseRequest();
 		},
-		[](const CommandInfo& info) {
-			const mspl::DatabaseElement* element = mspl::Application::Get()->Database().Get(info.tokens[1]);
-			if (element == nullptr) {
-				std::cout << "No track found with name '" << info.tokens[1] << "'\n";
-				return;
+		[](std::vector<std::vector<std::string>>& tokens) { // CloseUnsaved
+			jade::Application::Get().CloseUnsavedRequest();
+		},
+		GlobalAddExecute,
+		[](std::vector<std::vector<std::string>>& tokens) { // GlobalSave
+			jade::MusicDatabase::Get().SaveChanges();
+			jade::EventEmitter<jade::OnGlobalSaved>().Emit();
+		},
+		GlobalShowExecute,
+		PlaylistCreateExecute
+	};
+}
+
+jade::BackendConsole::BackendConsole() {
+	EventSystem::Get().Subscribe<OnApplicationClose>(50, [](OnApplicationClose e) {
+		if (e.closeState == OnApplicationClose::DatabaseChangesUnsaved) {
+			std::cout <<
+			" - You have unsaved global changes. To save type 'global_save' or 'close_unsaved' to exit without changes\n";
+		}
+	});
+}
+
+void jade::BackendConsole::Update() {
+	std::string cmdLine;
+
+	ShowInputRow();
+	std::getline(std::cin, cmdLine);
+
+	if (cmdLine.empty()) {
+		return;
+	}
+	std::vector<std::vector<std::string>> tokens = Tokenize(cmdLine);
+	if (!tokens.back().empty()) {
+		ShowError(tokens.back().front());
+		return;
+	}
+	tokens.pop_back();
+	Command command = GetCommandFromName(tokens.front().front());
+
+	g_ExecuteCommandFunctions[(int)command](tokens);
+}
+
+void jade::BackendConsole::Render() {
+
+}
+
+namespace {
+	void ShowInputRow() {
+		std::cout << "<Jade> ";
+	}
+
+	void ShowError(const std::string& error) {
+		std::cout << " - Error: " << error << '\n';
+	}
+
+	Command GetCommandFromName(const std::string& name) {
+		auto it = g_CommandMap.find(name);
+		if (it == g_CommandMap.cend()) {
+			return Command::NoCmd;
+		}
+		return it->second;
+	}
+
+	std::vector<std::vector<std::string>> Tokenize(const std::string& str) {
+		std::vector<std::vector<std::string>> tokens;
+
+		size_t i = 0;
+		size_t len = str.length();
+
+		while (i < len && std::isspace(str[i])) { ++i; }
+		{
+			std::string commandToken;
+			while (i < len && !std::isspace(str[i])) {
+				commandToken += str[i++];
 			}
-			for (uint32_t i = 0; i < element->artists.size(); ++i) {
-				std::cout << element->artists[i];
-				if (i + 1 < element->artists.size()) {
+			tokens.emplace_back();
+			tokens.back().emplace_back(std::move(commandToken));
+		}
+
+		while (i < len) {
+			while (i < len && std::isspace(str[i])) { ++i; }
+
+			std::string token;
+			while (i < len && !std::isspace(str[i])) {
+				token += str[i++];
+			}
+			if (token.back() != ':' && tokens.back().front().back() != ':') {
+				tokens.emplace_back();
+				tokens.back().emplace_back("Parameter pack name was not specified");
+				return tokens;
+			}
+			tokens.emplace_back();
+			tokens.back().emplace_back(std::move(token));
+
+			while (i < len) {
+				while (i < len && std::isspace(str[i])) { ++i; }
+
+				size_t pos = i;
+				while (i < len && str[i] != ',' && str[i] != ';') { ++i; }
+
+				tokens.back().emplace_back(str.substr(pos, i - pos));
+				if (str[i] == ';') {
+					++i;
+					break;
+				}
+				++i;
+			}
+		}
+		tokens.emplace_back();
+		return tokens;
+	}
+
+	void GlobalShowExecute(std::vector<std::vector<std::string>>& tokens) {
+		auto trackIt	= jade::MusicDatabase::Get().TrackIteratorBegin();
+		auto trackItEnd = jade::MusicDatabase::Get().TrackIteratorEnd();
+
+		for (; trackIt != trackItEnd; ++trackIt) {
+			std::cout << "\t- ID " << trackIt->id << ": ";
+			for (size_t i = 0; i < trackIt->artists.size(); ++i) {
+				std::cout << trackIt->artists[i];
+				if (i + 1 < trackIt->artists.size()) {
 					std::cout << ", ";
 				}
 			}
-			std::cout << " - " << element->name;
-			std::cout << " (" << element->durationSeconds << "s)\n";
-		},
-		[](const CommandInfo& info) {
-			const mspl::DatabaseElement* element = mspl::Application::Get()->Database().Get(info.tokens[1]);
-			mspl::Application::Get()->Player().Play(mspl::PlaylistElement(
-				element->audioPath, element->durationSeconds
-			));
-		},
-		[](const CommandInfo& info) {
-			mspl::Application::Get()->Player().StopDevice();
-		},
-		[](const CommandInfo& info) {
-			mspl::Playlist playlist;
-
-			size_t tokenSize = info.tokens.size();
-			for (size_t i = 2; i < tokenSize; ++i) {
-				const mspl::DatabaseElement* it = mspl::Application::Get()->Database().Get(info.tokens[i]);
-				if (it == nullptr) {
-					std::cout << " - Not found '" << info.tokens[i] << "' in global database\n";
-					continue;
+			std::cout << " - " << trackIt->name;
+			if (!trackIt->feat.empty()) {
+				std::cout << " (feat ";
+				for (size_t i = 0; i < trackIt->feat.size(); ++i) {
+					std::cout << trackIt->feat[i];
+					if (i + 1 < trackIt->feat.size()) {
+						std::cout << ", ";
+					}
 				}
-				mspl::PlaylistElement element(it->audioPath, it->durationSeconds);
-				playlist.Add(element);
-				std::cout << " - Added '" << info.tokens[i] << "'\n";
+				std::cout << ')';
 			}
-		},
-	};
-
-	void DispatchCommand(Command cmd, std::vector<std::string>& tokens) {
-		CommandInfo cmdInfo = {
-			.cmd = cmd,
-			.tokens = std::move(tokens)
-		};
-		EXECUTE_COMMANDS[(int)cmd](cmdInfo);
-	}
-
-	std::vector<std::string> TokenizeCommandLine(const std::string& line) {
-		std::vector<std::string> tokens;
-
-		size_t i = 0;
-		size_t lineLength = line.length();
-
-		while (i < lineLength) {
-			if (std::isspace(line[i])) {
-				++i;
-				continue;
-			}
-			if (line[i] == '"') {
-				++i;
-				std::string token;
-				while (i < lineLength && line[i] != '"') {
-					token += line[i];
-					++i;
-				}
-				++i;
-				tokens.emplace_back(std::move(token));
-				continue;
-			}
-			std::string token;
-			while (i < lineLength && !std::isspace(line[i])) {
-				token += line[i];
-				++i;
-			}
-			tokens.emplace_back(std::move(token));
+			std::cout << '\n';
 		}
-		return tokens;
+	}
+
+	void GlobalAddExecute(std::vector<std::vector<std::string>>& tokens) {
+		std::vector<std::string> artists;
+		std::vector<std::string> feat;
+		std::string name;
+		std::string path;
+
+		for (size_t i = 1; i < tokens.size(); ++i) {
+			std::vector<std::string>& pack = tokens[i];
+			if (std::strcmp("artists:", pack.front().c_str()) == 0) {
+				for (size_t i = 1; i < pack.size(); ++i) {
+					artists.emplace_back(std::move(pack[i]));
+				}
+			}
+			else if (std::strcmp("feat:", pack.front().c_str()) == 0) {
+				for (size_t i = 1; i < pack.size(); ++i) {
+					feat.emplace_back(std::move(pack[i]));
+				}
+			}
+			else if (std::strcmp("name:", pack.front().c_str()) == 0) {
+				name = std::move(pack[1]);
+			}
+			else if (std::strcmp("path:", pack.front().c_str()) == 0) {
+				path = std::move(pack[1]);
+			}
+			else {
+				std::cout << " - Unknown parameter pack '" << pack.front() << "'\n";
+				return;
+			}
+		}
+		std::string error = jade::MusicDatabase::Get().Add(artists, feat, name, path);
+		if (!error.empty()) {
+			ShowError(error);
+			return;
+		}
+		jade::EventEmitter<jade::OnGlobalAdded>().Emit();
+	}
+
+	void PlaylistCreateExecute(std::vector<std::vector<std::string>>& tokens) {
+		std::string name;
+		std::vector<uint64_t> ids;
+
+		// todo
 	}
 }
-
-namespace {
-	void ShowInputLine() {
-		std::cout << "<Music playlist v" <<
-			mspl::Config::VERSION_MAJOR << '.' <<
-			mspl::Config::VERSION_MINOR << '.' <<
-			mspl::Config::VERSION_PATCH << "> ";
-	}
-}
-
-void mspl::BackendConsole::HandleEvents() {
-	std::string cmdLine;
-
-	ShowInputLine();
-	std::getline(std::cin, cmdLine);
-	std::vector<std::string> tokens = TokenizeCommandLine(cmdLine);
-
-	if (tokens.empty()) {
-		std::cout << '\n';
-		return;
-	}
-	auto cmdIt = COMMAND_MAP.find(tokens[0]);
-	if (cmdIt == COMMAND_MAP.cend()) {
-		std::cout << "Unknown command!\n";
-		return;
-	}
-	DispatchCommand(cmdIt->second, tokens);
-}
-
-void mspl::BackendConsole::Update() {
-
-}
-
-void mspl::BackendConsole::Render() {}
