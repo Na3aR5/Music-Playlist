@@ -1,9 +1,9 @@
 #include <jade/Audio.h>
 #include <miniaudio.h>
 
-size_t jade::Audio::GetTrackLengthSeconds(const char* path) {
+size_t jade::Audio::GetTrackLengthSeconds(const std::string& path) {
 	ma_decoder decoder;
-	ma_decoder_init_file(path, nullptr, &decoder);
+	ma_decoder_init_file(path.c_str(), nullptr, &decoder);
 	ma_uint64 lengthInFrames = 0;
 	ma_decoder_get_length_in_pcm_frames(&decoder, &lengthInFrames);
 

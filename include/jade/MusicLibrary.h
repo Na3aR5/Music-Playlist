@@ -1,14 +1,16 @@
-#ifndef JADE_MUSIC_DATABASE_HEADER
-#define JADE_MUSIC_DATABASE_HEADER
+#ifndef JADE_MUSIC_LIBRARY_HEADER
+#define JADE_MUSIC_LIBRARY_HEADER
 
 #include <jade/Event.h>
 
 #include <fstream>
 #include <vector>
+#include <future>
+#include <memory>
 #include <filesystem>
 
 namespace jade {
-	class MusicDatabase {
+	class MusicLibrary {
 	public:
 		struct TrackElement {
 			uint64_t                 id;
@@ -32,21 +34,22 @@ namespace jade {
 		};
 
 	public:
-		MusicDatabase();
-		~MusicDatabase();
+		MusicLibrary();
+		~MusicLibrary();
 
 	public:
-		static MusicDatabase& Get();
-		static const MusicDatabase& GetConst();
+		static MusicLibrary& Get();
+		static const MusicLibrary& GetConst();
 
 	public:
-		void SaveChanges();
+		std::future<void> SaveChanges();
 
-		std::string Add(
+		std::future<void> Add(
 			const std::vector<std::string>& artists,
 			const std::vector<std::string>& feat,
 			const std::string& name,
-			const std::filesystem::path& path
+			const std::filesystem::path& path,
+			const std::shared_ptr<AsyncCancellationController>& ctrl
 		);
 
 		std::string CreatePlaylist(
@@ -66,4 +69,4 @@ namespace jade {
 	};
 }
 
-#endif // !JADE_MUSIC_DATABASE_HEADER
+#endif // !JADE_MUSIC_LIBRARY_HEADER

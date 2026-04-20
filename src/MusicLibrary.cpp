@@ -1,4 +1,4 @@
-#include <jade/MusicDatabase.h>
+#include <jade/MusicLibrary.h>
 #include <jade/Audio.h>
 #include <jade/App.h>
 
@@ -55,8 +55,8 @@ struct ObjectSerializer<std::vector<T>> {
 };
 
 template <>
-struct ObjectSerializer<jade::MusicDatabase::TrackElement> {
-	void operator()(std::fstream& file, const jade::MusicDatabase::TrackElement& elem) const {
+struct ObjectSerializer<jade::MusicLibrary::TrackElement> {
+	void operator()(std::fstream& file, const jade::MusicLibrary::TrackElement& elem) const {
 		ObjectSerializer<decltype(elem.id)>()(file, elem.id);
 		ObjectSerializer<decltype(elem.seconds)>()(file, elem.seconds);
 		ObjectSerializer<decltype(elem.artists)>()(file, elem.artists);
@@ -67,8 +67,8 @@ struct ObjectSerializer<jade::MusicDatabase::TrackElement> {
 };
 
 template <>
-struct ObjectSerializer<jade::MusicDatabase::PlaylistElement> {
-	void operator()(std::fstream& file, const jade::MusicDatabase::PlaylistElement& list) const {
+struct ObjectSerializer<jade::MusicLibrary::PlaylistElement> {
+	void operator()(std::fstream& file, const jade::MusicLibrary::PlaylistElement& list) const {
 		ObjectSerializer<decltype(list.id)>()(file, list.id);
 		ObjectSerializer<decltype(list.seconds)>()(file, list.seconds);
 		ObjectSerializer<decltype(list.name)>()(file, list.name);
@@ -124,35 +124,35 @@ struct ObjectDeserializer<std::vector<T>> {
 };
 
 template <>
-struct ObjectDeserializer<jade::MusicDatabase::TrackElement> {
-	jade::MusicDatabase::TrackElement operator()(const char*& source) const {
-		jade::MusicDatabase::TrackElement track = {};
+struct ObjectDeserializer<jade::MusicLibrary::TrackElement> {
+	jade::MusicLibrary::TrackElement operator()(const char*& source) const {
+		jade::MusicLibrary::TrackElement track = {};
 
-		track.id		= ObjectDeserializer<decltype(jade::MusicDatabase::TrackElement::id)>()(source);
-		track.seconds   = ObjectDeserializer<decltype(jade::MusicDatabase::TrackElement::seconds)>()(source);
-		track.artists   = std::move(ObjectDeserializer<decltype(jade::MusicDatabase::TrackElement::artists)>()(source));
-		track.feat	    = std::move(ObjectDeserializer<decltype(jade::MusicDatabase::TrackElement::feat)>()(source));
-		track.name      = std::move(ObjectDeserializer<decltype(jade::MusicDatabase::TrackElement::name)>()(source));
-		track.audioPath = std::move(ObjectDeserializer<decltype(jade::MusicDatabase::TrackElement::audioPath)>()(source));
+		track.id		= ObjectDeserializer<decltype(jade::MusicLibrary::TrackElement::id)>()(source);
+		track.seconds   = ObjectDeserializer<decltype(jade::MusicLibrary::TrackElement::seconds)>()(source);
+		track.artists   = std::move(ObjectDeserializer<decltype(jade::MusicLibrary::TrackElement::artists)>()(source));
+		track.feat	    = std::move(ObjectDeserializer<decltype(jade::MusicLibrary::TrackElement::feat)>()(source));
+		track.name      = std::move(ObjectDeserializer<decltype(jade::MusicLibrary::TrackElement::name)>()(source));
+		track.audioPath = std::move(ObjectDeserializer<decltype(jade::MusicLibrary::TrackElement::audioPath)>()(source));
 
 		return track;
 	}
 };
 
 template <>
-struct ObjectDeserializer<jade::MusicDatabase::PlaylistElement> {
-	jade::MusicDatabase::PlaylistElement operator()(const char*& source) const {
-		jade::MusicDatabase::PlaylistElement playlist = {};
+struct ObjectDeserializer<jade::MusicLibrary::PlaylistElement> {
+	jade::MusicLibrary::PlaylistElement operator()(const char*& source) const {
+		jade::MusicLibrary::PlaylistElement playlist = {};
 
-		playlist.id		 = ObjectDeserializer<decltype(jade::MusicDatabase::PlaylistElement::id)>()(source);
-		playlist.seconds = ObjectDeserializer<decltype(jade::MusicDatabase::PlaylistElement::seconds)>()(source);
-		playlist.name    = std::move(ObjectDeserializer<decltype(jade::MusicDatabase::PlaylistElement::name)>()(source));
+		playlist.id		 = ObjectDeserializer<decltype(jade::MusicLibrary::PlaylistElement::id)>()(source);
+		playlist.seconds = ObjectDeserializer<decltype(jade::MusicLibrary::PlaylistElement::seconds)>()(source);
+		playlist.name    = std::move(ObjectDeserializer<decltype(jade::MusicLibrary::PlaylistElement::name)>()(source));
 
-		size_t playlistSize = ObjectDeserializer<decltype(jade::MusicDatabase::PlaylistElement::tracks.size())>()(source);
+		size_t playlistSize = ObjectDeserializer<decltype(jade::MusicLibrary::PlaylistElement::tracks.size())>()(source);
 		playlist.tracks.reserve(playlistSize);
 
 		for (size_t i = 0; i < playlistSize; ++i) {
-			uint64_t id = ObjectDeserializer<decltype(jade::MusicDatabase::TrackElement::id)>()(source);
+			uint64_t id = ObjectDeserializer<decltype(jade::MusicLibrary::TrackElement::id)>()(source);
 			playlist.tracks.push_back(id);
 		}
 		return playlist;
@@ -160,7 +160,7 @@ struct ObjectDeserializer<jade::MusicDatabase::PlaylistElement> {
 };
 
 namespace {
-	jade::MusicDatabase* g_Database = nullptr;
+	jade::MusicLibrary* g_Database = nullptr;
 }
 
 namespace {
@@ -168,7 +168,7 @@ namespace {
 	std::string ReadFileContents(std::fstream& file);
 }
 
-jade::MusicDatabase::MusicDatabase() {
+jade::MusicLibrary::MusicLibrary() {
 	if (g_Database != nullptr) {
 		throw std::runtime_error("Music database is already created");
 	}
@@ -188,77 +188,129 @@ jade::MusicDatabase::MusicDatabase() {
 			m_playlists = std::move(ObjectDeserializer<decltype(m_playlists)>()(source));
 		}
 	}
-
 	if (!std::filesystem::exists(Config::Paths::MusicStorage)) {
 		std::filesystem::create_directories(Config::Paths::MusicStorage);
 	}
 
 	EventSystem::Get().Subscribe<OnApplicationClose>(100, [this](OnApplicationClose& e) {
 		if (m_changeStates != 0) {
-			e.closeState = OnApplicationClose::DatabaseChangesUnsaved;
+			e.closeState = OnApplicationClose::LibraryChangesUnsaved;
 		}
 	});
 
 	g_Database = this;
 }
 
-jade::MusicDatabase::~MusicDatabase() {
+jade::MusicLibrary::~MusicLibrary() {
 	g_Database = nullptr;
 }
 
-jade::MusicDatabase& jade::MusicDatabase::Get() {
-	return *g_Database;
+jade::MusicLibrary& jade::MusicLibrary::Get() { return *g_Database; }
+const jade::MusicLibrary& jade::MusicLibrary::GetConst() { return *g_Database; }
+
+std::future<void> jade::MusicLibrary::SaveChanges() {
+	return std::async(std::launch::async, [this]() -> void {
+		if (m_changeStates == 0) {
+			EventEmitter<OnTaskEnded>().Emit(OnTaskEnded{
+				.status = OnTaskEnded::Status::Success,
+				.whatTask = TaskType::AsyncMusicLibrarySave,
+				.category = TaskCategory::Async,
+				.errorMsg = {}
+			});
+			return;
+		}
+		if (m_changeStates & ChangeState::TrackListChangeBit) {
+			m_tracksMetadataFile.seekp(0, std::ios::beg);
+			ObjectSerializer<decltype(m_tracks)>()(m_tracksMetadataFile, m_tracks);
+			m_changeStates &= ~ChangeState::TrackListChangeBit;
+		}
+		if (m_changeStates & ChangeState::PlaylistChangeBit) {
+			m_playlistMetadataFile.seekp(0, std::ios::beg);
+			ObjectSerializer<decltype(m_playlists)>()(m_playlistMetadataFile, m_playlists);
+			m_changeStates &= ~ChangeState::PlaylistChangeBit;
+		}
+		EventEmitter<OnTaskEnded>().Emit(OnTaskEnded{
+			.status   = OnTaskEnded::Status::Success,
+			.whatTask = TaskType::AsyncMusicLibrarySave,
+			.category = TaskCategory::Async,
+			.errorMsg = {}
+		});
+	});
 }
 
-const jade::MusicDatabase& jade::MusicDatabase::GetConst() {
-	return *g_Database;
-}
-
-void jade::MusicDatabase::SaveChanges() {
-	if (m_changeStates == 0) {
-		return;
-	}
-	if (m_changeStates & ChangeState::TrackListChangeBit) {
-		m_tracksMetadataFile.seekp(0, std::ios::beg);
-		ObjectSerializer<decltype(m_tracks)>()(m_tracksMetadataFile, m_tracks);
-		m_changeStates &= ~ChangeState::TrackListChangeBit;
-	}
-	if (m_changeStates & ChangeState::PlaylistChangeBit) {
-		m_playlistMetadataFile.seekp(0, std::ios::beg);
-		ObjectSerializer<decltype(m_playlists)>()(m_playlistMetadataFile, m_playlists);
-		m_changeStates &= ~ChangeState::PlaylistChangeBit;
-	}
-}
-
-std::string jade::MusicDatabase::Add(
+std::future<void> jade::MusicLibrary::Add(
 const std::vector<std::string>& artists,
 const std::vector<std::string>& feat,
 const std::string& name,
-const std::filesystem::path& path) {
-	jade::MusicDatabase::TrackElement track = {};
-	track.artists = artists;
-	track.feat    = feat;
-	track.name    = name;
+const std::filesystem::path& path,
+const std::shared_ptr<AsyncCancellationController>& ctrl) {
+	return std::async(std::launch::async, [=, this]() -> void {
+		auto CheckCancellation = [&ctrl]() -> bool {
+			if (ctrl->ShouldCancel()) {
+				EventEmitter<OnTaskEnded>().Emit(OnTaskEnded{
+					.status   = OnTaskEnded::Status::Cancelled,
+					.whatTask = TaskType::AsyncMusicLibraryAdd,
+					.category = TaskCategory::Async,
+					.errorMsg = {}
+				});
+				return true;
+			}
+			return false;
+		};
+		if (!std::filesystem::exists(path)) {
+			EventEmitter<OnTaskEnded>().Emit(OnTaskEnded{
+				.status   = OnTaskEnded::Status::Failed,
+				.whatTask = TaskType::AsyncMusicLibraryAdd,
+				.category = TaskCategory::Async,
+				.errorMsg = std::string("Path '") + path.string() + "' does not exist in the filesystem"
+			});
+			return;
+		}
+		if (CheckCancellation()) {
+			return;
+		}
+		std::future<size_t> trackSeconds = std::async(std::launch::async, [path]() -> size_t {
+			return Audio::GetTrackLengthSeconds(path.string());
+		});
+		if (CheckCancellation()) {
+			return;
+		}
+		std::filesystem::copy_file(
+			path,
+			Config::Paths::MusicStorage / path.filename(),
+			std::filesystem::copy_options::overwrite_existing
+		);
+		if (CheckCancellation()) {
+			return;
+		}
+		TrackElement track = {};
+		track.artists   = artists;
+		track.feat      = feat;
+		track.name      = name;
+		track.id        = m_tracks.size();
+		track.audioPath = Config::Paths::MusicStorage / path.filename();
 
-	if (!std::filesystem::exists(path)) {
-		return std::string("Path '") + path.string() + "' does not exist in filesystem";
-	}
-	std::filesystem::copy_file(
-		path,
-		Config::Paths::MusicStorage / path.filename(),
-		std::filesystem::copy_options::overwrite_existing
-	);
-	track.audioPath = Config::Paths::MusicStorage / path.filename();
-	track.seconds = Audio::GetTrackLengthSeconds(track.audioPath.string().c_str());
-	track.id = m_tracks.size();
+		if (CheckCancellation()) {
+			return;
+		}
+		track.seconds = trackSeconds.get();
 
-	m_tracks.emplace_back(std::move(track));
-	m_changeStates |= ChangeState::TrackListChangeBit;
+		if (CheckCancellation()) {
+			return;
+		}
+		m_tracks.emplace_back(std::move(track));
+		m_changeStates |= ChangeState::TrackListChangeBit;
 
-	return {};
+		EventEmitter<OnTaskEnded>().Emit(OnTaskEnded{
+			.status   = OnTaskEnded::Status::Success,
+			.whatTask = TaskType::AsyncMusicLibraryAdd,
+			.category = TaskCategory::Async,
+			.errorMsg = {}
+		});
+	});
 }
 
-std::string jade::MusicDatabase::CreatePlaylist(const std::string& name, const std::vector<uint64_t>& ids) {
+std::string jade::MusicLibrary::CreatePlaylist(const std::string& name, const std::vector<uint64_t>& ids) {
 	PlaylistElement playlist = {};
 	playlist.seconds = 0;
 
@@ -286,11 +338,11 @@ std::string jade::MusicDatabase::CreatePlaylist(const std::string& name, const s
 	return {};
 }
 
-std::vector<jade::MusicDatabase::TrackElement>::const_iterator jade::MusicDatabase::TrackIteratorBegin() const {
+std::vector<jade::MusicLibrary::TrackElement>::const_iterator jade::MusicLibrary::TrackIteratorBegin() const {
 	return m_tracks.cbegin();
 }
 
-std::vector<jade::MusicDatabase::TrackElement>::const_iterator jade::MusicDatabase::TrackIteratorEnd() const {
+std::vector<jade::MusicLibrary::TrackElement>::const_iterator jade::MusicLibrary::TrackIteratorEnd() const {
 	return m_tracks.cend();
 }
 

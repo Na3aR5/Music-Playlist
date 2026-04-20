@@ -8,7 +8,7 @@ namespace {
 	jade::Application* g_Application = nullptr;
 }
 
-jade::Application::Application() : m_eventSystem(), m_musicDatabase() {
+jade::Application::Application() : m_eventSystem(), m_inputSystem(), m_musicLibrary() {
 	if (g_Application != nullptr) {
 		throw std::runtime_error("Application is already created");
 	}
@@ -22,8 +22,12 @@ jade::Application::Application() : m_eventSystem(), m_musicDatabase() {
 
 	m_eventSystem.Subscribe<OnApplicationClose>(0, [this](OnApplicationClose e) {
 		if (e.closeState == e.ShouldClose) {
-			m_states |= State::STOPPED_BIT;
-			m_states &= ~State::STARTED_BIT;
+			m_states |= State::StoppedBit;
+			m_states &= ~(State::StartedBit | State::WaitForOthersBit);
+			return;
+		}
+		if (e.closeState == e.WaitForOthers) {
+			m_states |= State::WaitForOthersBit;
 		}
 	});
 
@@ -48,14 +52,26 @@ const jade::Application& jade::Application::GetConst() {
 }
 
 void jade::Application::MainLoop() {
-	if (m_states & State::STARTED_BIT) {
+	if (m_states & State::StartedBit) {
 		return;
 	}
-	m_states |= State::STARTED_BIT;
+	m_states |= State::StartedBit;
 
-	while (m_states & State::STARTED_BIT) {
-		m_backend->Update();
+	auto startTimestamp = std::chrono::high_resolution_clock::now();
+
+	while (m_states & State::StartedBit) {
+		auto frameTimestamp = std::chrono::high_resolution_clock::now();
+		Timestep deltaTime = std::chrono::duration<double>(frameTimestamp - startTimestamp).count();
+		startTimestamp = frameTimestamp;
+
 		m_backend->Render();
+		
+		m_inputSystem.Update(deltaTime);
+		m_backend->Update(deltaTime);
+	
+		if (m_states & State::WaitForOthersBit) {
+			CloseRequest();
+		}
 		m_eventSystem.Dispatch();
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -69,6 +85,6 @@ void jade::Application::CloseRequest() {
 }
 
 void jade::Application::CloseUnsavedRequest() {
-	m_states |= State::STOPPED_BIT;
-	m_states &= ~State::STARTED_BIT;
+	m_states |= State::StoppedBit;
+	m_states &= ~State::StartedBit;
 }

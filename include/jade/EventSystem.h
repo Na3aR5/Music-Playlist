@@ -69,7 +69,7 @@ namespace jade {
 			void Pop() {
 				if constexpr (!std::is_trivially_destructible_v<T>) {
 					if (m_storageHead + sizeof(T) <= m_storageTail) {
-						(T*)(m_storage + m_storageHead)->~T();
+						((T*)(m_storage + m_storageHead))->~T();
 					}
 				}
 				m_storageHead += sizeof(T);

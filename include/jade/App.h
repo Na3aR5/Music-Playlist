@@ -4,15 +4,17 @@
 #include <jade/Config.h>
 #include <jade/Event.h>
 #include <jade/EventSystem.h>
-#include <jade/MusicDatabase.h>
+#include <jade/InputSystem.h>
+#include <jade/MusicLibrary.h>
 #include <jade/backend/Backend.h>
 
 namespace jade {
 	class Application {
 	public:
 		enum State {
-			STARTED_BIT = 0x1,
-			STOPPED_BIT = 0x2
+			StartedBit		 = 0x1,
+			StoppedBit		 = 0x2,
+			WaitForOthersBit = 0x4
 		};
 
 	public:
@@ -29,10 +31,11 @@ namespace jade {
 		void CloseUnsavedRequest();
 
 	private:
-		uint32_t	  m_states = 0;
-		IBackend*     m_backend = nullptr;
-		EventSystem   m_eventSystem;
-		MusicDatabase m_musicDatabase;
+		uint32_t	 m_states = 0;
+		IBackend*    m_backend = nullptr;
+		EventSystem  m_eventSystem;
+		InputSystem  m_inputSystem;
+		MusicLibrary m_musicLibrary;
 	};
 }
 
