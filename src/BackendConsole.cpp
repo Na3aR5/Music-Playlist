@@ -22,13 +22,15 @@ namespace {
 		{ "lib_add",         jade::BackendConsole::Command::LibraryAdd },
 		{ "lib_save",        jade::BackendConsole::Command::LibrarySave },
 		{ "lib_show",        jade::BackendConsole::Command::LibraryShow },
-		{ "playlist_create", jade::BackendConsole::Command::PlaylistCreate },
+		{ "play",            jade::BackendConsole::Command::Play },
+		{ "pause",           jade::BackendConsole::Command::Pause },
+		{ "playlist_create", jade::BackendConsole::Command::PlaylistCreate }
 	};
 }
 
 jade::BackendConsole::BackendConsole() {
 	for (size_t i = 0; i < (size_t)TaskType::AsyncCancellableCount; ++i) {
-		m_asyncTaskCancellationCtrls[i] = std::make_shared<AsyncCancellationController>();
+		m_futureTasks[i] = std::make_shared<FutureTask>();
 	}
 
 	EventSystem::Get().Subscribe<OnKeyAction>(50, [this](const OnKeyAction& e) {
@@ -50,12 +52,16 @@ jade::BackendConsole::BackendConsole() {
 			DispatchTaskResult(e);
 			return;
 		}
+		ClearConsoleLine();
+		std::cout << "Previous operation has been cancelled\n";
+		ShowNewInput();
+		std::cout << m_commandBuffer;
 	});
 	EventSystem::Get().Subscribe<OnApplicationClose>(50, [this](OnApplicationClose& e) {
 		if (m_workingTaskCount > 0) {
 			if (!(m_states & State::AllTasksCancelledBit)) {
-				for (auto& ctrl : m_asyncTaskCancellationCtrls) {
-					ctrl->Cancel();
+				for (auto& task : m_futureTasks) {
+					task->m_controller.Cancel();
 				}
 				m_states |= State::AllTasksCancelledBit;
 			}
@@ -153,7 +159,6 @@ void jade::BackendConsole::KeyActionTask(const Task& task) {
 
 void jade::BackendConsole::ExecuteCmdTask(const Task& task) {
 	std::cout << '\n';
-	ShowNewInput();
 	DispatchCmdExecution(task);
 }
 
@@ -170,6 +175,11 @@ void jade::BackendConsole::DispatchCmdExecution(const Task& task) {
 	tokens.pop_back();
 	Command command = GetCommandFromName(tokens.front().front());
 
+	if (command == Command::None) {
+		std::cout << "Unknown command '" << tokens.front().front() << "'\n";
+		m_states |= State::ShouldShowNewInputBit;
+		return;
+	}
 	((*this).*m_dispatchCmdTable[(size_t)command])(tokens);
 }
 
@@ -185,21 +195,26 @@ void jade::BackendConsole::ExecuteLibraryShowCmd(std::vector<std::vector<std::st
 	auto trackIt    = jade::MusicLibrary::Get().TrackIteratorBegin();
 	auto trackItEnd = jade::MusicLibrary::Get().TrackIteratorEnd();
 
-	std::cout << '\n';
+	if (trackIt == trackItEnd) {
+		std::cout << "Music library is empty\n";
+		m_states |= State::ShouldShowNewInputBit;
+		return;
+	}
+
 	for (; trackIt != trackItEnd; ++trackIt) {
-		std::cout << "\t- ID " << trackIt->id << ": ";
-		for (size_t i = 0; i < trackIt->artists.size(); ++i) {
-			std::cout << trackIt->artists[i];
-			if (i + 1 < trackIt->artists.size()) {
+		std::cout << "\t- ID " << trackIt->second.id << ": ";
+		for (size_t i = 0; i < trackIt->second.artists.size(); ++i) {
+			std::cout << trackIt->second.artists[i];
+			if (i + 1 < trackIt->second.artists.size()) {
 				std::cout << ", ";
 			}
 		}
-		std::cout << " - " << trackIt->name;
-		if (!trackIt->feat.empty()) {
+		std::cout << " - " << trackIt->second.name;
+		if (!trackIt->second.feat.empty()) {
 			std::cout << " (feat ";
-			for (size_t i = 0; i < trackIt->feat.size(); ++i) {
-				std::cout << trackIt->feat[i];
-				if (i + 1 < trackIt->feat.size()) {
+			for (size_t i = 0; i < trackIt->second.feat.size(); ++i) {
+				std::cout << trackIt->second.feat[i];
+				if (i + 1 < trackIt->second.feat.size()) {
 					std::cout << ", ";
 				}
 			}
@@ -244,10 +259,32 @@ void jade::BackendConsole::ExecuteLibraryAddCmd(std::vector<std::vector<std::str
 			return;
 		}
 	}
-	m_asyncTaskCancellationCtrls[(size_t)TaskType::AsyncMusicLibraryAdd]->Reset();
+	std::shared_ptr<FutureTask>& currFutureTask = m_futureTasks[(size_t)TaskType::AsyncMusicLibraryAdd];
+
+	currFutureTask->m_controller.Reset();
 	++m_workingTaskCount;
-	MusicLibrary::Get().Add(artists, feat, name, path,
-		m_asyncTaskCancellationCtrls[(size_t)TaskType::AsyncMusicLibraryAdd]);
+	currFutureTask->SetTask(MusicLibrary::Get().Add(artists, feat, name, path, currFutureTask));
+	currFutureTask->m_controller.Cancel();
+}
+
+void jade::BackendConsole::ExecutePlayCmd(std::vector<std::vector<std::string>>& tokens) {
+	uint64_t id = std::atoi(tokens[1].front().c_str());
+	jade::MusicLibrary::TrackIterator track = MusicLibrary::GetConst().GetTrackByID(id);
+
+	if (track == MusicLibrary::GetConst().TrackIteratorEnd()) {
+		std::cout << "No track found with ID = " << id << '\n';
+	}
+	else {
+		Application::Get().Player().Play(track->second);
+	}
+	m_states |= State::ShouldShowNewInputBit;
+}
+
+void jade::BackendConsole::ExecutePauseCmd(std::vector<std::vector<std::string>>& tokens) {
+	if (Application::Get().Player().IsPlaying()) {
+		Application::Get().Player().Pause();
+	}
+	m_states |= State::ShouldShowNewInputBit;
 }
 
 namespace {

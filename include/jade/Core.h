@@ -2,7 +2,25 @@
 #define JADE_CORE_HEADER
 
 #include <atomic>
+#include <future>
 #include <memory>
+
+namespace _jade {
+	class FutureTaskTypeErased {
+	public:
+		virtual ~FutureTaskTypeErased() = default;
+	};
+
+	template <typename T>
+	class FutureTaskTypeErasedImpl : public FutureTaskTypeErased {
+	public:
+		FutureTaskTypeErasedImpl(std::future<T>&& future) : future(std::move(future)) {}
+		virtual ~FutureTaskTypeErasedImpl() = default;
+
+	public:
+		std::future<T> future;
+	};
+}
 
 namespace jade {
 	enum class TaskType {
@@ -53,6 +71,22 @@ namespace jade {
 
 	private:
 		std::atomic<bool> m_shouldCancel{ false };
+	};
+
+	struct FutureTask {
+	public:
+		FutureTask() = default;
+
+	public:
+		template <typename T>
+		void SetTask(std::future<T>&& future) {
+			m_future.reset();
+			m_future = std::make_unique<_jade::FutureTaskTypeErasedImpl<T>>(std::move(future));
+		}
+
+	public:
+		AsyncCancellationController                  m_controller;
+		std::unique_ptr<_jade::FutureTaskTypeErased> m_future;
 	};
 }
 

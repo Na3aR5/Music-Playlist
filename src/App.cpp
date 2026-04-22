@@ -51,6 +51,9 @@ const jade::Application& jade::Application::GetConst() {
 	return *g_Application;
 }
 
+jade::Player& jade::Application::Player() { return g_Application->m_player; }
+const jade::Player& jade::Application::ConstPlayer() { return g_Application->m_player; }
+
 void jade::Application::MainLoop() {
 	if (m_states & State::StartedBit) {
 		return;

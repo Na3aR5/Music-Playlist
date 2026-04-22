@@ -3,10 +3,11 @@
 
 #include <jade/Event.h>
 
-#include <fstream>
+#include <map>
 #include <vector>
 #include <future>
 #include <memory>
+#include <fstream>
 #include <filesystem>
 
 namespace jade {
@@ -14,7 +15,7 @@ namespace jade {
 	public:
 		struct TrackElement {
 			uint64_t                 id;
-			size_t					 seconds;
+			double					 seconds;
 			std::vector<std::string> artists;
 			std::vector<std::string> feat;
 			std::string				 name;
@@ -23,10 +24,12 @@ namespace jade {
 
 		struct PlaylistElement {
 			uint64_t			  id;
-			size_t				  seconds;
+			double				  seconds;
 			std::string			  name;
 			std::vector<uint64_t> tracks;
 		};
+
+		using TrackIterator = std::map<uint64_t, TrackElement>::const_iterator;
 
 		enum ChangeState : uint64_t {
 			TrackListChangeBit = 0x1,
@@ -43,13 +46,14 @@ namespace jade {
 
 	public:
 		std::future<void> SaveChanges();
+		TrackIterator GetTrackByID(uint64_t id) const;
 
 		std::future<void> Add(
 			const std::vector<std::string>& artists,
 			const std::vector<std::string>& feat,
 			const std::string& name,
 			const std::filesystem::path& path,
-			const std::shared_ptr<AsyncCancellationController>& ctrl
+			const std::shared_ptr<FutureTask>& task
 		);
 
 		std::string CreatePlaylist(
@@ -57,15 +61,15 @@ namespace jade {
 			const std::vector<uint64_t>& ids
 		);
 
-		std::vector<TrackElement>::const_iterator TrackIteratorBegin() const;
-		std::vector<TrackElement>::const_iterator TrackIteratorEnd() const;
+		TrackIterator TrackIteratorBegin() const;
+		TrackIterator TrackIteratorEnd() const;
 
 	private:
-		uint64_t				     m_changeStates = 0;
-		std::vector<TrackElement>    m_tracks;
-		std::vector<PlaylistElement> m_playlists;
-		std::fstream			     m_playlistMetadataFile;
-		std::fstream			     m_tracksMetadataFile;
+		uint64_t				         m_changeStates = 0;
+		std::map<uint64_t, TrackElement> m_tracks;
+		std::vector<PlaylistElement>     m_playlists;
+		std::fstream			         m_playlistMetadataFile;
+		std::fstream			         m_tracksMetadataFile;
 	};
 }
 

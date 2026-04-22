@@ -15,7 +15,9 @@ add_library(Jade
 	include/jade/EventSystem.h
 	include/jade/InputSystem.h
 	include/jade/MusicLibrary.h
-	include/jade/Audio.h
+
+	include/jade/audio/Audio.h
+	include/jade/audio/Player.h
 
 	include/jade/backend/Backend.h
 	include/jade/backend/BackendConsole.h
@@ -28,6 +30,7 @@ add_library(Jade
 	src/BackendConsole.cpp
 	src/MusicLibrary.cpp
 	src/Audio.cpp
+	src/Player.cpp
 )
 
 target_include_directories(Jade PUBLIC

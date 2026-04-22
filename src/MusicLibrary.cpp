@@ -1,5 +1,5 @@
 #include <jade/MusicLibrary.h>
-#include <jade/Audio.h>
+#include <jade/audio/Audio.h>
 #include <jade/App.h>
 
 #include <stdexcept>
@@ -67,6 +67,18 @@ struct ObjectSerializer<jade::MusicLibrary::TrackElement> {
 };
 
 template <>
+struct ObjectSerializer<std::map<uint64_t, jade::MusicLibrary::TrackElement>> {
+	void operator()(std::fstream& file, const std::map<uint64_t, jade::MusicLibrary::TrackElement>& map) const {
+		size_t size = map.size();
+		file.write((const char*)&size, sizeof(size_t));
+
+		for (const auto& pair : map) {
+			ObjectSerializer<jade::MusicLibrary::TrackElement>()(file, pair.second);
+		}
+	}
+};
+
+template <>
 struct ObjectSerializer<jade::MusicLibrary::PlaylistElement> {
 	void operator()(std::fstream& file, const jade::MusicLibrary::PlaylistElement& list) const {
 		ObjectSerializer<decltype(list.id)>()(file, list.id);
@@ -128,14 +140,29 @@ struct ObjectDeserializer<jade::MusicLibrary::TrackElement> {
 	jade::MusicLibrary::TrackElement operator()(const char*& source) const {
 		jade::MusicLibrary::TrackElement track = {};
 
-		track.id		= ObjectDeserializer<decltype(jade::MusicLibrary::TrackElement::id)>()(source);
-		track.seconds   = ObjectDeserializer<decltype(jade::MusicLibrary::TrackElement::seconds)>()(source);
-		track.artists   = std::move(ObjectDeserializer<decltype(jade::MusicLibrary::TrackElement::artists)>()(source));
-		track.feat	    = std::move(ObjectDeserializer<decltype(jade::MusicLibrary::TrackElement::feat)>()(source));
-		track.name      = std::move(ObjectDeserializer<decltype(jade::MusicLibrary::TrackElement::name)>()(source));
+		track.id = ObjectDeserializer<decltype(jade::MusicLibrary::TrackElement::id)>()(source);
+		track.seconds = ObjectDeserializer<decltype(jade::MusicLibrary::TrackElement::seconds)>()(source);
+		track.artists = std::move(ObjectDeserializer<decltype(jade::MusicLibrary::TrackElement::artists)>()(source));
+		track.feat = std::move(ObjectDeserializer<decltype(jade::MusicLibrary::TrackElement::feat)>()(source));
+		track.name = std::move(ObjectDeserializer<decltype(jade::MusicLibrary::TrackElement::name)>()(source));
 		track.audioPath = std::move(ObjectDeserializer<decltype(jade::MusicLibrary::TrackElement::audioPath)>()(source));
 
 		return track;
+	}
+};
+
+template <>
+struct ObjectDeserializer<std::map<uint64_t, jade::MusicLibrary::TrackElement>> {
+	std::map<uint64_t, jade::MusicLibrary::TrackElement> operator()(const char*& source) const {
+		size_t size = *(const size_t*)source;
+		source += sizeof(size_t);
+
+		std::map<uint64_t, jade::MusicLibrary::TrackElement> map;
+		for (size_t i = 0; i < size; ++i) {
+			jade::MusicLibrary::TrackElement track = ObjectDeserializer<jade::MusicLibrary::TrackElement>()(source);
+			map.emplace(track.id, std::move(track));
+		}
+		return map;
 	}
 };
 
@@ -238,15 +265,19 @@ std::future<void> jade::MusicLibrary::SaveChanges() {
 	});
 }
 
+jade::MusicLibrary::TrackIterator jade::MusicLibrary::GetTrackByID(uint64_t id) const {
+	return m_tracks.find(id);
+}
+
 std::future<void> jade::MusicLibrary::Add(
 const std::vector<std::string>& artists,
 const std::vector<std::string>& feat,
 const std::string& name,
 const std::filesystem::path& path,
-const std::shared_ptr<AsyncCancellationController>& ctrl) {
+const std::shared_ptr<FutureTask>& task) {
 	return std::async(std::launch::async, [=, this]() -> void {
-		auto CheckCancellation = [&ctrl]() -> bool {
-			if (ctrl->ShouldCancel()) {
+		auto CheckCancellation = [&task]() -> bool {
+			if (task->m_controller.ShouldCancel()) {
 				EventEmitter<OnTaskEnded>().Emit(OnTaskEnded{
 					.status   = OnTaskEnded::Status::Cancelled,
 					.whatTask = TaskType::AsyncMusicLibraryAdd,
@@ -266,10 +297,11 @@ const std::shared_ptr<AsyncCancellationController>& ctrl) {
 			});
 			return;
 		}
+		std::this_thread::sleep_for(std::chrono::milliseconds(100));
 		if (CheckCancellation()) {
 			return;
 		}
-		std::future<size_t> trackSeconds = std::async(std::launch::async, [path]() -> size_t {
+		std::future<double> trackSeconds = std::async(std::launch::async, [path]() -> double {
 			return Audio::GetTrackLengthSeconds(path.string());
 		});
 		if (CheckCancellation()) {
@@ -298,7 +330,7 @@ const std::shared_ptr<AsyncCancellationController>& ctrl) {
 		if (CheckCancellation()) {
 			return;
 		}
-		m_tracks.emplace_back(std::move(track));
+		m_tracks.emplace(track.id, std::move(track));
 		m_changeStates |= ChangeState::TrackListChangeBit;
 
 		EventEmitter<OnTaskEnded>().Emit(OnTaskEnded{
@@ -338,11 +370,11 @@ std::string jade::MusicLibrary::CreatePlaylist(const std::string& name, const st
 	return {};
 }
 
-std::vector<jade::MusicLibrary::TrackElement>::const_iterator jade::MusicLibrary::TrackIteratorBegin() const {
+jade::MusicLibrary::TrackIterator jade::MusicLibrary::TrackIteratorBegin() const {
 	return m_tracks.cbegin();
 }
 
-std::vector<jade::MusicLibrary::TrackElement>::const_iterator jade::MusicLibrary::TrackIteratorEnd() const {
+jade::MusicLibrary::TrackIterator jade::MusicLibrary::TrackIteratorEnd() const {
 	return m_tracks.cend();
 }
 

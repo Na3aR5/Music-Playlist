@@ -6,6 +6,8 @@
 #include <jade/EventSystem.h>
 #include <jade/InputSystem.h>
 #include <jade/MusicLibrary.h>
+
+#include <jade/audio/Player.h>
 #include <jade/backend/Backend.h>
 
 namespace jade {
@@ -25,6 +27,9 @@ namespace jade {
 		static Application& Get();
 		static const Application& GetConst();
 
+		static jade::Player& Player();
+		static const jade::Player& ConstPlayer();
+
 	public:
 		void MainLoop();
 		void CloseRequest();
@@ -33,6 +38,7 @@ namespace jade {
 	private:
 		uint32_t	 m_states = 0;
 		IBackend*    m_backend = nullptr;
+		jade::Player m_player;
 		EventSystem  m_eventSystem;
 		InputSystem  m_inputSystem;
 		MusicLibrary m_musicLibrary;

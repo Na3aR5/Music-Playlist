@@ -28,6 +28,9 @@ namespace jade {
 			LibrarySave,
 			LibraryAdd,
 
+			Play,
+			Pause,
+
 			PlaylistCreate,
 
 			None
@@ -83,6 +86,8 @@ namespace jade {
 		void ExecuteLibraryShowCmd(std::vector<std::vector<std::string>>&);
 		void ExecuteLibrarySaveCmd(std::vector<std::vector<std::string>>&);
 		void ExecuteLibraryAddCmd(std::vector<std::vector<std::string>>&);
+		void ExecutePlayCmd(std::vector<std::vector<std::string>>&);
+		void ExecutePauseCmd(std::vector<std::vector<std::string>>&);
 
 	private:
 		uint64_t         m_states = (uint64_t)State::ShouldShowNewInputBit;
@@ -90,7 +95,7 @@ namespace jade {
 		std::queue<Task> m_taskQueue;
 		
 		size_t m_workingTaskCount = 0;
-		std::shared_ptr<AsyncCancellationController> m_asyncTaskCancellationCtrls[(size_t)TaskType::AsyncCancellableCount] = {};
+		std::shared_ptr<FutureTask> m_futureTasks[(size_t)TaskType::AsyncCancellableCount] = {};
 
 		std::vector<void(BackendConsole::*)(const Task&)> m_dispatchTaskTable = {
 			&BackendConsole::KeyActionTask,
@@ -103,6 +108,8 @@ namespace jade {
 			&BackendConsole::ExecuteLibraryShowCmd,
 			&BackendConsole::ExecuteLibrarySaveCmd,
 			&BackendConsole::ExecuteLibraryAddCmd,
+			&BackendConsole::ExecutePlayCmd,
+			&BackendConsole::ExecutePauseCmd,
 		};
 	};
 }
