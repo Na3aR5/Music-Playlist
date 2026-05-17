@@ -43,6 +43,20 @@ char jade::InputSystem::KeyToChar(Key key, KeyModifier mods) const noexcept {
 		return (char)(offset + ((int)key - (int)Key::A));
 	}
 	if (key >= Key::N0 && key <= Key::N9) {
+		if (hasShift) {
+			switch (key) {
+				case Key::N1: return '!';
+				case Key::N2: return '@';
+				case Key::N3: return '#';
+				case Key::N4: return '$';
+				case Key::N5: return '%';
+				case Key::N6: return '^';
+				case Key::N7: return '&';
+				case Key::N8: return '*';
+				case Key::N9: return '(';
+				case Key::N0: return ')';
+			}
+		}
 		return (char)('0' + ((int)key - (int)Key::N0));
 	}
 	switch (key) {
@@ -139,7 +153,18 @@ namespace {
 				g_InputSystem->GenerateKeyPressed(key, isPressed, mods);
 
 				newState[vk].pressed = isPressed;
+				newState[vk].mods    = mods;
 				newState[vk].delay   = 0.45;
+			}
+			else if (wasPressed) {
+				if (ctx.deltaTime >= ctx.keyPressedState[vk].delay) {
+					newState[vk].delay = 0.0;
+					jade::Key key = ConvertNativeKeyCode(vk);
+					g_InputSystem->GenerateKeyPressed(key, isPressed, ctx.keyPressedState[vk].mods);
+				}
+				else {
+					newState[vk].delay -= ctx.deltaTime;
+				}
 			}
 		}
 		ctx.keyPressedState = std::move(newState);

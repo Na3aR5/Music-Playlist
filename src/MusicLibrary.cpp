@@ -238,10 +238,11 @@ const jade::MusicLibrary& jade::MusicLibrary::GetConst() { return *g_Database; }
 std::future<void> jade::MusicLibrary::SaveChanges() {
 	return std::async(std::launch::async, [this]() -> void {
 		if (m_changeStates == 0) {
-			EventEmitter<OnTaskEnded>().Emit(OnTaskEnded{
-				.status = OnTaskEnded::Status::Success,
+			EventEmitter<OnAsyncTaskEnded>().Emit(OnAsyncTaskEnded{
+				.status   = OnTaskEnded::Status::Success,
 				.whatTask = TaskType::AsyncMusicLibrarySave,
 				.category = TaskCategory::Async,
+				.task     = {},
 				.errorMsg = {}
 			});
 			return;
@@ -256,10 +257,11 @@ std::future<void> jade::MusicLibrary::SaveChanges() {
 			ObjectSerializer<decltype(m_playlists)>()(m_playlistMetadataFile, m_playlists);
 			m_changeStates &= ~ChangeState::PlaylistChangeBit;
 		}
-		EventEmitter<OnTaskEnded>().Emit(OnTaskEnded{
+		EventEmitter<OnAsyncTaskEnded>().Emit(OnAsyncTaskEnded{
 			.status   = OnTaskEnded::Status::Success,
 			.whatTask = TaskType::AsyncMusicLibrarySave,
 			.category = TaskCategory::Async,
+			.task     = {},
 			.errorMsg = {}
 		});
 	});
@@ -270,18 +272,16 @@ jade::MusicLibrary::TrackIterator jade::MusicLibrary::GetTrackByID(uint64_t id) 
 }
 
 std::future<void> jade::MusicLibrary::Add(
-const std::vector<std::string>& artists,
-const std::vector<std::string>& feat,
-const std::string& name,
-const std::filesystem::path& path,
-const std::shared_ptr<FutureTask>& task) {
+const std::vector<std::string>& artists, const std::vector<std::string>& feat,
+const std::string& name, const std::filesystem::path& path, const std::shared_ptr<FutureTask>& task) {
 	return std::async(std::launch::async, [=, this]() -> void {
-		auto CheckCancellation = [&task]() -> bool {
-			if (task->m_controller.ShouldCancel()) {
-				EventEmitter<OnTaskEnded>().Emit(OnTaskEnded{
+		auto CheckCancellation = [task]() -> bool {
+			if (task->ShouldCancel()) {
+				EventEmitter<OnAsyncTaskEnded>().Emit(OnAsyncTaskEnded{
 					.status   = OnTaskEnded::Status::Cancelled,
 					.whatTask = TaskType::AsyncMusicLibraryAdd,
 					.category = TaskCategory::Async,
+					.task     = std::move(task),
 					.errorMsg = {}
 				});
 				return true;
@@ -289,15 +289,15 @@ const std::shared_ptr<FutureTask>& task) {
 			return false;
 		};
 		if (!std::filesystem::exists(path)) {
-			EventEmitter<OnTaskEnded>().Emit(OnTaskEnded{
+			EventEmitter<OnAsyncTaskEnded>().Emit(OnAsyncTaskEnded{
 				.status   = OnTaskEnded::Status::Failed,
 				.whatTask = TaskType::AsyncMusicLibraryAdd,
 				.category = TaskCategory::Async,
+				.task     = std::move(task),
 				.errorMsg = std::string("Path '") + path.string() + "' does not exist in the filesystem"
 			});
 			return;
 		}
-		std::this_thread::sleep_for(std::chrono::milliseconds(100));
 		if (CheckCancellation()) {
 			return;
 		}
@@ -333,10 +333,11 @@ const std::shared_ptr<FutureTask>& task) {
 		m_tracks.emplace(track.id, std::move(track));
 		m_changeStates |= ChangeState::TrackListChangeBit;
 
-		EventEmitter<OnTaskEnded>().Emit(OnTaskEnded{
-			.status   = OnTaskEnded::Status::Success,
+		EventEmitter<OnAsyncTaskEnded>().Emit(OnAsyncTaskEnded{
+			.status = OnTaskEnded::Status::Success,
 			.whatTask = TaskType::AsyncMusicLibraryAdd,
 			.category = TaskCategory::Async,
+			.task     = std::move(task),
 			.errorMsg = {}
 		});
 	});
@@ -370,13 +371,8 @@ std::string jade::MusicLibrary::CreatePlaylist(const std::string& name, const st
 	return {};
 }
 
-jade::MusicLibrary::TrackIterator jade::MusicLibrary::TrackIteratorBegin() const {
-	return m_tracks.cbegin();
-}
-
-jade::MusicLibrary::TrackIterator jade::MusicLibrary::TrackIteratorEnd() const {
-	return m_tracks.cend();
-}
+jade::MusicLibrary::TrackIterator jade::MusicLibrary::TrackIteratorBegin() const { return m_tracks.cbegin(); }
+jade::MusicLibrary::TrackIterator jade::MusicLibrary::TrackIteratorEnd() const { return m_tracks.cend(); }
 
 namespace {
 	void TryOpenFile(std::fstream& file, const char* path) {
@@ -406,5 +402,51 @@ namespace {
 			throw std::runtime_error("Failed to read file contents");
 		}
 		return buffer;
+	}
+}
+
+jade::MusicLibraryProxy::MusicLibraryProxy(Attachment attachments) : m_attachments(attachments) {
+	_CreateAttachments(attachments);
+}
+
+jade::MusicLibraryProxy::MusicLibraryProxy(MusicLibrary* library, Attachment attachments) :
+m_library(library), m_attachments(attachments) {
+	_CreateAttachments(attachments);
+}
+
+std::future<void> jade::MusicLibraryProxy::SaveChanges() {
+	return m_library->SaveChanges();
+}
+
+jade::MusicLibrary::TrackIterator jade::MusicLibraryProxy::GetTrackByID(uint64_t id) const {
+	{
+		MusicLibrary::TrackIterator* iterator;
+		if ((bool)(m_attachments & Attachment::Cache) && (iterator = m_trackByIdCache->Get(id)) != nullptr) {
+			return *iterator;
+		}
+	}
+	MusicLibrary::TrackIterator iterator = m_library->GetTrackByID(id);
+	if ((bool)(m_attachments & Attachment::Cache) && iterator != m_library->TrackIteratorEnd()) {
+		m_trackByIdCache->Insert(id, iterator);
+	}
+	return iterator;
+}
+
+std::future<void> jade::MusicLibraryProxy::Add(
+const std::vector<std::string>& artists,
+const std::vector<std::string>& feat,
+const std::string& name,
+const std::filesystem::path& path,
+const std::shared_ptr<FutureTask>& task) {
+	return m_library->Add(artists, feat, name, path, task);
+}
+
+std::string jade::MusicLibraryProxy::CreatePlaylist(const std::string& name, const std::vector<uint64_t>& ids) {
+	return m_library->CreatePlaylist(name, ids);
+}
+
+void jade::MusicLibraryProxy::_CreateAttachments(Attachment attachements) {
+	if ((bool)(m_attachments & Attachment::Cache)) {
+		m_trackByIdCache = std::make_unique<LRUCache<uint64_t, MusicLibrary::TrackIterator>>();
 	}
 }

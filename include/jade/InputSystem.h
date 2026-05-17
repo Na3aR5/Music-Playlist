@@ -11,8 +11,9 @@ namespace jade {
 	class InputSystem {
 	public:
 		struct KeyState {
-			bool     pressed = false;
-			Timestep delay   = 0.0;
+			bool		pressed = false;
+			KeyModifier mods    = KeyModifier::None;
+			Timestep    delay   = 0.0;
 		};
 
 		struct UpdateContext {

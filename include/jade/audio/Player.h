@@ -15,7 +15,9 @@ namespace jade {
 	public:
 		bool IsPlaying() const;
 		void Play(const MusicLibrary::TrackElement& track);
+		void Resume();
 		void Pause();
+		void SetVolume(float volume);
 
 	private:
 		std::unique_ptr<Impl> m_impl;

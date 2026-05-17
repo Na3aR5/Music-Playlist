@@ -54,6 +54,25 @@ namespace jade {
 		Timestep() = default;
 		Timestep(double timestep) : m_timestep(timestep) {}
 
+		inline bool operator==(const Timestep& other) noexcept {
+			return std::fabs(m_timestep - other.m_timestep) < DBL_EPSILON;
+		}
+
+		inline bool operator<(const Timestep& other) noexcept { return m_timestep < other.m_timestep; }
+		inline bool operator<=(const Timestep& other) noexcept { return m_timestep <= other.m_timestep; }
+		inline bool operator>(const Timestep& other) noexcept { return m_timestep > other.m_timestep; }
+		inline bool operator>=(const Timestep& other) noexcept { return m_timestep >= other.m_timestep; }
+
+		inline Timestep& operator+=(const Timestep& other) noexcept {
+			m_timestep += other.m_timestep;
+			return *this;
+		}
+
+		inline Timestep& operator-=(const Timestep& other) noexcept {
+			m_timestep -= other.m_timestep;
+			return *this;
+		}
+
 	public:
 		inline double Seconds() const noexcept { return m_timestep; }
 
@@ -78,13 +97,17 @@ namespace jade {
 		FutureTask() = default;
 
 	public:
+		inline void Wait() noexcept { m_future.reset(); }
+		inline void Cancel() noexcept { m_controller.Cancel(); }
+		inline bool ShouldCancel() noexcept { return m_controller.ShouldCancel(); }
+
 		template <typename T>
 		void SetTask(std::future<T>&& future) {
-			m_future.reset();
+			Wait();
 			m_future = std::make_unique<_jade::FutureTaskTypeErasedImpl<T>>(std::move(future));
 		}
 
-	public:
+	private:
 		AsyncCancellationController                  m_controller;
 		std::unique_ptr<_jade::FutureTaskTypeErased> m_future;
 	};

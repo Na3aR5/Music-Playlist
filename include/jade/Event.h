@@ -58,6 +58,14 @@ namespace jade {
 		std::string  errorMsg;
 	};
 
+	struct OnAsyncTaskEnded {
+		OnTaskEnded::Status			status   = OnTaskEnded::Status::None;
+		TaskType				    whatTask = TaskType::None;
+		TaskCategory			    category = TaskCategory::None;
+		std::shared_ptr<FutureTask> task;
+		std::string				    errorMsg;
+	};
+
 	struct OnKeyAction {
 	public:
 		bool	    pressed;

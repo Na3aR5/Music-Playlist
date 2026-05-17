@@ -8,6 +8,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 add_library(Jade
 	include/jade/Core.h
 	include/jade/Platform.h
+	include/jade/Cache.h
 
 	include/jade/App.h
 	include/jade/Config.h
@@ -36,11 +37,12 @@ add_library(Jade
 target_include_directories(Jade PUBLIC
 	include
 	external/lib/miniaudio
+	external/lib/miniaudio/extras/nodes
 )
 
 add_subdirectory(external/lib/miniaudio)
 
-target_link_libraries(Jade PUBLIC miniaudio)
+target_link_libraries(Jade PUBLIC miniaudio miniaudio_reverb_node)
 
 add_executable(MusicPlaylistTest test/main.cpp)
 
