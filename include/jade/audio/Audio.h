@@ -48,6 +48,9 @@ namespace jade {
 		IAudioStreamEffect(const std::shared_ptr<IAudioStream>& stream) : m_stream(stream) {}
 		~IAudioStreamEffect() = default;
 
+	public:
+		std::shared_ptr<IAudioStream> GetStream() const noexcept { return m_stream; }
+
 	protected:
 		std::shared_ptr<IAudioStream> m_stream;
 	};
@@ -63,17 +66,16 @@ namespace jade {
 		virtual size_t GetSampleRate() const override;
 		virtual uint32_t GetChannelCount() const override;
 
+		inline void SetSpeed(double speed) { m_speed = speed; }
+
 	private:
 		double m_speed;
-		double m_cursor = 0.0;
 
 		struct _Impl;
 		std::unique_ptr<_Impl> m_impl;
 	};
 
-	inline std::shared_ptr<IAudioStream> SpeedUp(const std::shared_ptr<IAudioStream>& stream, double speed) {
-		return std::make_shared<AudioStreamSpeeded>(stream, speed);
-	}
+	std::shared_ptr<IAudioStream> SetSpeed(std::shared_ptr<IAudioStream>& stream, double speed);
 }
 
 #endif // !JADE_AUDIO_HEADER

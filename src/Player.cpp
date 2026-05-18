@@ -15,7 +15,7 @@ public:
 
 public:
 	Impl() {
-		this->stream = SpeedUp(std::make_shared<AudioStream>(), 1.0f);
+		this->stream = std::make_shared<AudioStream>();
 	}
 
 public:
@@ -100,6 +100,10 @@ void jade::Player::Pause() {
 
 void jade::Player::SetVolume(float volume) {
 	m_impl->SetVolume(volume);
+}
+
+void jade::Player::SetSpeed(double speed) {
+	m_impl->stream = jade::SetSpeed(m_impl->stream, speed);
 }
 
 namespace {

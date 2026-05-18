@@ -18,6 +18,7 @@ namespace jade {
 		void Resume();
 		void Pause();
 		void SetVolume(float volume);
+		void SetSpeed(double speed);
 
 	private:
 		std::unique_ptr<Impl> m_impl;

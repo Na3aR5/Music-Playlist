@@ -65,6 +65,7 @@ char jade::InputSystem::KeyToChar(Key key, KeyModifier mods) const noexcept {
 		case Key::Colon: return hasShift ? ':' : ';';
 		case Key::Quote: return hasShift ? '"' : '\'';
 		case Key::Comma: return hasShift ? '<' : ',';
+		case Key::Dot:   return hasShift ? '>' : '.';
 	}
 	return '\0';
 }
@@ -107,10 +108,11 @@ namespace {
 			case VK_LMENU:     return jade::Key::LAlt;
 			case VK_RMENU:     return jade::Key::RAlt;
 
-			case VK_OEM_MINUS: return jade::Key::Minus;
-			case VK_OEM_1:     return jade::Key::Colon;
-			case VK_OEM_7:     return jade::Key::Quote;
-			case VK_OEM_COMMA: return jade::Key::Comma;
+			case VK_OEM_MINUS:  return jade::Key::Minus;
+			case VK_OEM_1:      return jade::Key::Colon;
+			case VK_OEM_7:      return jade::Key::Quote;
+			case VK_OEM_COMMA:  return jade::Key::Comma;
+			case VK_OEM_PERIOD: return jade::Key::Dot;
 		}
 		return jade::Key::None;
 	}

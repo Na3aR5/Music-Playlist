@@ -33,6 +33,7 @@ namespace jade {
 			Pause,
 			Resume,
 			Volume,
+			Speed,
 
 			PlaylistCreate,
 
@@ -102,6 +103,7 @@ namespace jade {
 		void ExecutePauseCmd(std::vector<std::vector<std::string>>&);
 		void ExecuteResumeCmd(std::vector<std::vector<std::string>>&);
 		void ExecuteVolumeCmd(std::vector<std::vector<std::string>>&);
+		void ExecuteSpeedCmd(std::vector<std::vector<std::string>>&);
 
 	private:
 		uint64_t         m_states = (uint64_t)State::ShouldShowNewInputBit;
@@ -130,6 +132,7 @@ namespace jade {
 			&BackendConsole::ExecutePauseCmd,
 			&BackendConsole::ExecuteResumeCmd,
 			&BackendConsole::ExecuteVolumeCmd,
+			&BackendConsole::ExecuteSpeedCmd,
 		};
 	};
 }

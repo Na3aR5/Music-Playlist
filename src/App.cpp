@@ -68,7 +68,7 @@ void jade::Application::MainLoop() {
 		startTimestamp = frameTimestamp;
 
 		m_backend->Render();
-		
+
 		m_inputSystem.Update(deltaTime);
 		m_backend->Update(deltaTime);
 	

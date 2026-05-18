@@ -188,3 +188,17 @@ size_t jade::AudioStreamSpeeded::GetSampleRate() const {
 uint32_t jade::AudioStreamSpeeded::GetChannelCount() const {
 	return m_stream->GetChannelCount();
 }
+
+std::shared_ptr<jade::IAudioStream> jade::SetSpeed(std::shared_ptr<IAudioStream>& stream, double speed) {
+	std::shared_ptr<IAudioStream> currStream = stream;
+	while (!dynamic_cast<AudioStream*>(currStream.get())) {
+		AudioStreamSpeeded* speedStream = dynamic_cast<AudioStreamSpeeded*>(currStream.get());
+		if (speedStream) {
+			speedStream->SetSpeed(speed);
+			return stream;
+		}
+		IAudioStreamEffect* effect = (IAudioStreamEffect*)currStream.get();
+		currStream = effect->GetStream();
+	}
+	return std::make_shared<AudioStreamSpeeded>(stream, speed);
+}

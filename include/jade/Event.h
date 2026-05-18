@@ -40,6 +40,7 @@ namespace jade {
 		Colon, // colon | semicolon
 		Quote, // single quote | double quote
 		Comma, // comma | '<'
+		Dot,   // dot | '>'
 
 		Count
 	};

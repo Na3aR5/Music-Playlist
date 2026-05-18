@@ -25,6 +25,7 @@ namespace {
 		{ "pause",           jade::BackendConsole::Command::Pause },
 		{ "resume",          jade::BackendConsole::Command::Resume },
 		{ "volume",          jade::BackendConsole::Command::Volume },
+		{ "speed",			 jade::BackendConsole::Command::Speed },
 
 		{ "playlist_create", jade::BackendConsole::Command::PlaylistCreate }
 	};
@@ -384,6 +385,24 @@ void jade::BackendConsole::ExecuteVolumeCmd(std::vector<std::vector<std::string>
 		Application::Get().Player().SetVolume(volume * 0.01f);
 
 		std::cout << "Player sound volume has been set to " << volume << "%\n";
+		m_states |= State::ShouldShowNewInputBit;
+	}
+}
+
+void jade::BackendConsole::ExecuteSpeedCmd(std::vector<std::vector<std::string>>& tokens) {
+	if (strcmp("x:", tokens[1][1].c_str())) {
+		double speed;
+		try {
+			speed = std::stod(tokens[1][1]);
+		}
+		catch (const std::invalid_argument&) {
+			std::cout << "Invalid number format\n";
+			m_states |= State::ShouldShowNewInputBit;
+			return;
+		}
+		Application::Get().Player().SetSpeed(speed);
+
+		std::cout << "Player speed has been set to " << speed << "\n";
 		m_states |= State::ShouldShowNewInputBit;
 	}
 }
